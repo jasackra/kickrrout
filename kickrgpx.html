@@ -3,70 +3,61 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Kickr Live Tracker — Final</title>
+<title>Kickr Live Tracker</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
-  :root{
-    --topbar-h:64px;
-    --accent:#00aaff;
-    --bg-panel: rgba(17,17,17,0.85);
-    --panel-radius:12px;
-  }
-  html,body{height:100%;margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;}
-  #map{position:fixed; inset:0; z-index:1;}
-  /* Topbar */
-  #topbar{
-    position:fixed; top:8px; left:8px; right:8px; height:var(--topbar-h);
-    z-index:10010; background:var(--bg-panel); color:#fff;
-    border-radius:var(--panel-radius); display:flex; align-items:center;
-    justify-content:space-around; padding:8px 12px; box-shadow:0 6px 18px rgba(0,0,0,0.35);
-    backdrop-filter: blur(6px);
-  }
-  #topbar .cell{display:flex;flex-direction:column;align-items:center;min-width:82px;}
-  #topbar .label{font-size:12px;color:rgba(255,255,255,0.75);font-weight:500}
-  #topbar .value{font-size:18px;font-weight:700;margin-top:4px}
-  @media (max-width:640px){ #topbar{font-size:13px; padding:6px;} #topbar .value{font-size:16px} }
+:root{
+  --topbar-h:64px;
+  --accent:#00aaff;
+  --bg-panel: rgba(17,17,17,0.85);
+  --panel-radius:12px;
+}
+html,body{height:100%;margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Arial;}
+#map{position:fixed; inset:0; z-index:1;}
 
-  /* Controls panel sits right below topbar */
-  #controls{
-    position:fixed; top:calc(8px + var(--topbar-h) + 10px); left:12px; z-index:10011;
-    background:rgba(255,255,255,0.95); padding:10px; border-radius:10px; box-shadow:0 6px 14px rgba(0,0,0,0.25);
-    display:flex; flex-direction:row; gap:10px; align-items:center;
-    backdrop-filter: blur(2px);
-  }
-  #controls .col{display:flex;flex-direction:column; gap:6px;}
-  input[type="number"]{width:84px;padding:6px;border-radius:6px;border:1px solid #ddd}
-  button{border:0;padding:8px 12px;border-radius:8px;cursor:pointer;font-weight:600}
-  #themeBtn{background:#111;color:#fff}
-  #fullscreenBtn{background:#444;color:#fff}
-  #connectBtn{background:#666;color:#fff;min-width:170px;transition:all .22s}
-  #connectBtn.connecting{background:#ffcc00;color:#111}
-  #connectBtn.connected{background:#0bbf4a;color:#fff}
-  #loadFileBtn{background:var(--accent);color:#fff}
+/* Topbar */
+#topbar{
+  position:fixed; top:8px; left:8px; right:8px; height:var(--topbar-h);
+  z-index:10010; background:var(--bg-panel); color:#fff;
+  border-radius:var(--panel-radius); display:flex; align-items:center;
+  justify-content:space-around; padding:8px 12px; box-shadow:0 6px 18px rgba(0,0,0,0.35);
+  backdrop-filter: blur(6px);
+}
+#topbar .cell{display:flex;flex-direction:column;align-items:center;min-width:70px;}
+#topbar .label{font-size:12px;color:rgba(255,255,255,0.75);font-weight:500}
+#topbar .value{font-size:18px;font-weight:700;margin-top:4px}
 
-  /* small responsive layout for narrow screens */
-  @media (max-width:640px){
-    #controls{left:8px; right:8px; flex-wrap:wrap}
-    #controls .col{width:100%;}
-    #connectBtn{min-width:140px}
-  }
+/* Controls below topbar */
+#controls{
+  position:fixed; top:calc(8px + var(--topbar-h) + 6px); left:8px; right:8px; z-index:10011;
+  background:rgba(255,255,255,0.95); padding:6px 10px; border-radius:10px;
+  display:flex; flex-wrap:wrap; gap:6px; justify-content:flex-start; align-items:center;
+  box-shadow:0 6px 14px rgba(0,0,0,0.25); backdrop-filter: blur(2px);
+}
+#controls input[type="number"]{width:64px;padding:4px;border-radius:6px;border:1px solid #ddd;font-size:14px;}
+#controls button{border:0;padding:6px 10px;border-radius:8px;cursor:pointer;font-weight:600;font-size:14px;}
+#connectBtn{background:#666;color:#fff;transition:all .22s;}
+#connectBtn.connecting{background:#ffcc00;color:#111;}
+#connectBtn.connected{background:#0bbf4a;color:#fff;}
+#loadFileBtn{background:var(--accent);color:#fff;}
+#fullscreenBtn{background:#444;color:#fff;}
 
-  /* Summary modal */
-  #summary{
-    position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); z-index:10020;
-    background:#111;color:#fff;padding:18px;border-radius:12px;display:none;min-width:260px;
-    box-shadow:0 12px 30px rgba(0,0,0,0.5);
-  }
-  #summary button{margin-top:12px;background:#0bbf4a;color:#fff;border-radius:8px;padding:8px 12px;border:0}
+/* Summary modal */
+#summary{
+  position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); z-index:10020;
+  background:#111;color:#fff;padding:18px;border-radius:12px;display:none;min-width:260px;
+  box-shadow:0 12px 30px rgba(0,0,0,0.5);
+}
+#summary button{margin-top:12px;background:#0bbf4a;color:#fff;border-radius:8px;padding:8px 12px;border:0}
 
-  /* ensure file input is hidden but accessible by button */
-  #gpxfile{display:none}
+/* Hidden file input */
+#gpxfile{display:none}
 </style>
 </head>
 <body>
 
-<!-- Topbar with big values -->
-<div id="topbar" aria-hidden="false">
+<!-- Topbar with live values -->
+<div id="topbar">
   <div class="cell"><span class="label">Distanz</span><span id="top-distance" class="value">0.00 km</span></div>
   <div class="cell"><span class="label">Zeit</span><span id="top-time" class="value">0:00</span></div>
   <div class="cell"><span class="label">Leistung</span><span id="top-power" class="value">0 W</span></div>
@@ -75,12 +66,99 @@
   <div class="cell"><span class="label">Kadenz</span><span id="top-cad" class="value">0 rpm</span></div>
 </div>
 
-<!-- Controls under the bar -->
-<div id="controls" role="region" aria-label="Steuerung">
-  <div class="col">
-    <label style="font-size:13px;color:#333">Fahrergewicht (kg)</label>
-    <input id="weight" type="number" value="75" min="30" max="150"/>
-  </div>
+<!-- Controls under topbar -->
+<div id="controls">
+  <label>Gewicht (kg)<input id="weight" type="number" value="75" min="30" max="150"/></label>
+  <button id="connectBtn">🔗 KICKR verbinden</button>
+  <button id="loadFileBtn">📁 GPX laden</button>
+  <input id="gpxfile" type="file" accept=".gpx"/>
+  <button id="fullscreenBtn">⛶</button>
+</div>
 
-  <div class="col" style="align-items:center">
-    <button id="themeBtn" title="Tag / Nacht">🌞 Tag</button>
+<!-- Map -->
+<div id="map"></div>
+
+<!-- Summary modal -->
+<div id="summary">
+  <div id="summary-text"></div>
+  <button id="summary-ok">OK</button>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/togeojson/0.16.0/togeojson.min.js"></script>
+<script>
+let map = L.map('map',{zoomControl:true}).setView([51.5,10],12);
+const lightTiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+
+let coords=[], elevations=[], routeIndex=0, offsetOnSegment=0;
+let marker=null, routeLine=null;
+let distance_m=0, totalGain=0, startTime=null, timerInterval=null;
+let currentPower=0, currentCadence=0, currentSlope=0;
+let connected=false, lastTrittTime=Date.now();
+
+const btnConnect = document.getElementById('connectBtn');
+const btnLoad = document.getElementById('loadFileBtn');
+const inputGPX = document.getElementById('gpxfile');
+const topDistance = document.getElementById('top-distance');
+const topTime = document.getElementById('top-time');
+const topPower = document.getElementById('top-power');
+const topHM = document.getElementById('top-hm');
+const topSlope = document.getElementById('top-slope');
+const topCad = document.getElementById('top-cad');
+const weightInput = document.getElementById('weight');
+const summaryModal = document.getElementById('summary');
+const summaryText = document.getElementById('summary-text');
+const summaryOk = document.getElementById('summary-ok');
+
+function formatTime(ms){const s=Math.floor(ms/1000);const m=Math.floor(s/60);return `${m}:${String(s%60).padStart(2,'0')}`;}
+function setTopValues(){
+  topDistance.textContent=(distance_m/1000).toFixed(2)+' km';
+  topTime.textContent=startTime?formatTime(Date.now()-startTime):'0:00';
+  topPower.textContent=Math.round(currentPower||0)+' W';
+  topHM.textContent=Math.round(totalGain)+' m';
+  topSlope.textContent=(currentSlope||0).toFixed(1)+' %';
+  topCad.textContent=Math.round(currentCadence||0)+' rpm';
+}
+
+function haversine(lat1,lon1,lat2,lon2){
+  const R=6371000,toRad=d=>d*Math.PI/180;
+  const dLat=toRad(lat2-lat1), dLon=toRad(lon2-lon1);
+  const a=Math.sin(dLat/2)**2+Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
+  return 2*R*Math.asin(Math.sqrt(a));
+}
+
+function advanceAlongRoute(m){
+  if(!coords.length) return;
+  let rem=m;
+  while(rem>0 && routeIndex<coords.length-1){
+    const [lat1,lon1]=coords[routeIndex];
+    const [lat2,lon2]=coords[routeIndex+1];
+    const segLen=haversine(lat1,lon1,lat2,lon2);
+    const left=segLen-offsetOnSegment;
+    if(rem<left){
+      offsetOnSegment+=rem; rem=0;
+      const t=offsetOnSegment/segLen;
+      const lat=lat1+(lat2-lat1)*t;
+      const lon=lon1+(lon2-lon1)*t;
+      updateMarker(lat,lon,elevations[routeIndex]+(elevations[routeIndex+1]-elevations[routeIndex])*t);
+      break;
+    }else{
+      rem-=left; routeIndex++; offsetOnSegment=0;
+      updateMarker(coords[routeIndex][0],coords[routeIndex][1],elevations[routeIndex]);
+    }
+  }
+  if(routeIndex>=coords.length-1) onRouteFinished();
+}
+
+function updateMarker(lat,lon,elev){
+  if(!marker) marker=L.marker([lat,lon]).addTo(map);
+  else marker.setLatLng([lat,lon]);
+  map.panTo([lat,lon],{animate:true,duration:0.6});
+  if(typeof elev==='number') totalGain=Math.max(totalGain,elev);
+  setTopValues();
+}
+
+function onRouteFinished(){stopTimer();showSummary();}
+
+function startTimer(){if(startTime)return; startTime=Date.now(); timerInterval=setInterval(setTopValues,1000);}
+function stopTimer(){if(timerInterval) clearInterval(timerInterval); timerInterval=null; startTime=null
