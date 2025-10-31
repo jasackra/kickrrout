@@ -12,7 +12,7 @@ html, body {height:100%; margin:0; padding:0; overflow:hidden;}
   background: rgba(255,255,255,0.85); padding:10px; border-radius:8px;
 }
 #controls input, #controls button {margin-top:4px; display:block;}
-#themeBtn, #fullscreenBtn, #connectBtn {
+#themeBtn, #fullscreenBtn, #connectBtn, #loadFileBtn {
   background:#222; color:#fff; border:none; padding:6px 10px; border-radius:6px; cursor:pointer; font-weight:bold;
 }
 #themeBtn.light {background:#eee; color:#222;}
@@ -30,6 +30,8 @@ html, body {height:100%; margin:0; padding:0; overflow:hidden;}
   <button id="themeBtn" class="light">🌞 Tag</button>
   <button id="fullscreenBtn">⛶ Vollbild</button>
   <button id="connectBtn">🔗 KICKR CORE verbinden</button>
+  <button id="loadFileBtn">📁 GPX laden</button>
+  <input type="file" id="gpxfile" accept=".gpx" style="display:none;"/>
 </div>
 
 <div id="stats">
@@ -44,6 +46,7 @@ html, body {height:100%; margin:0; padding:0; overflow:hidden;}
 <div id="map"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/togeojson/0.16.0/togeojson.min.js"></script>
 
 <script>
 let map = L.map('map').setView([51.5, 10],6);
@@ -74,8 +77,35 @@ let marker=null, totalGain=0, distance=0, startTime=null, timer=null;
 const g=9.81;
 let weight = parseFloat(document.getElementById('weight').value)||75;
 
+// GPX Handling
+let coords=[], elevations=[];
+document.getElementById('loadFileBtn').addEventListener('click',()=>{
+  document.getElementById('gpxfile').click();
+});
+document.getElementById('gpxfile').addEventListener('change', e=>{
+  const file = e.target.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = evt=>{
+    try{
+      const gpxDoc = new DOMParser().parseFromString(evt.target.result,"application/xml");
+      const geo = toGeoJSON.gpx(gpxDoc);
+      const feature = geo.features.find(f=>f.geometry?.type==="LineString");
+      if(!feature){alert("Keine Trackdaten gefunden."); return;}
+      coords = feature.geometry.coordinates.map(c=>[c[1],c[0]]);
+      elevations = feature.geometry.coordinates.map(c=>c[2]||0);
+      if(marker) map.removeLayer(marker);
+      marker = L.marker(coords[0]).addTo(map);
+      L.polyline(coords,{color:'#00aaff',weight:4}).addTo(map);
+      map.fitBounds(L.polyline(coords).getBounds());
+      ['hm','slope','power','distance'].forEach(id=>document.getElementById(id).textContent="0");
+    }catch(err){console.error(err); alert("Fehler beim Laden der GPX-Datei.");}
+  };
+  reader.readAsText(file);
+});
+
+// Update Marker + Stats
 function updateStats(lat, lon, elev, cad, power, dist){
-  if(!marker) marker = L.marker([lat, lon]).addTo(map);
+  if(!marker) marker=L.marker([lat, lon]).addTo(map);
   marker.setLatLng([lat, lon]);
   map.setView([lat, lon], map.getZoom(), {animate:true, duration:0.25});
   document.getElementById('power').textContent = Math.round(power);
@@ -96,7 +126,7 @@ document.getElementById('connectBtn').addEventListener('click', async ()=>{
     alert("KICKR CORE verbunden!");
     startTime=Date.now();
     timer=setInterval(updateTime,1000);
-    // Hier KICKR-Daten auslesen → updateStats(lat, lon, elev, cad, power, distance)
+    // KICKR-Daten auslesen → updateStats(lat, lon, elev, cad, power, distance)
   }catch(e){console.error(e); alert("Verbindung fehlgeschlagen: "+e);}
 });
 
