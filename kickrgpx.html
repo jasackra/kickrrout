@@ -5,18 +5,18 @@
 <title>GPX Kickr Live & Sim Tracker</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
-html, body {margin:0; padding:0; height:100%; overflow:hidden; background:#000;}
+html, body {margin:0; padding:0; height:100%; overflow:hidden; background:#f0f0f0;}
 #map {width:100%; height:100%; position:absolute; top:0; left:0; z-index:1;}
 #topbar {
   position:fixed; top:0; left:0; width:100%;
-  background:rgba(20,20,20,0.85); color:#fff;
+  background:rgba(255,255,255,0.85); color:#000;
   z-index:1000; padding:10px;
   font-family:sans-serif; font-size:14px;
   display:flex; justify-content:space-around; align-items:center;
 }
 #controls {
   position:fixed; bottom:10px; left:50%; transform:translateX(-50%);
-  background:rgba(60,60,60,0.7); color:#fff;
+  background:rgba(255,255,255,0.85); color:#000;
   padding:6px 10px; border-radius:10px;
   display:flex; gap:10px; z-index:1000;
   font-family:sans-serif; font-size:13px;
@@ -24,9 +24,9 @@ html, body {margin:0; padding:0; height:100%; overflow:hidden; background:#000;}
 #controls button, #controls input {
   border:none; border-radius:6px;
   padding:5px 8px; cursor:pointer; font-size:13px;
+  background:#eee; color:#000;
 }
 #connectBtn.connected {background:#1aa01a; color:#fff;}
-#connectBtn {background:#444; color:#fff;}
 #gpxfile {display:none;}
 </style>
 </head>
@@ -126,9 +126,8 @@ document.getElementById('connectBtn').addEventListener('click',async()=>{
       });
       kickrServer = await kickrDevice.gatt.connect();
       btn.classList.add('connected'); btn.textContent='✅ KICKR verbunden';
-      // Simulation & Service abonnieren hier:
       cyclingService = await kickrServer.getPrimaryService('cycling_power');
-      // Charakteristik abonnieren und schreiben: Watt, Widerstand, etc.
+      // Simulation & Characteristic abonnieren hier
     }catch(err){alert("Verbindung fehlgeschlagen: "+err);}
   }
 });
@@ -147,8 +146,10 @@ setInterval(async()=>{
   }
   // KICKR Daten abrufen & Widerstand nach Track-Slope setzen
   if(kickrDevice && kickrDevice.gatt.connected){
-    // Beispiel: cyclingService Characteristik lesen/schreiben
-    // updateTopBar() mit echten Werten vom KICKR
+    // Hier echte Werte lesen und Widerstand schreiben
+    // document.getElementById('power').textContent = Watt
+    // document.getElementById('cadence').textContent = Kadenz
+    // document.getElementById('slope').textContent = Track-Steigung
   }
   updateTopBar();
   lastMove=Date.now();
@@ -171,9 +172,9 @@ function updateTopBar(){
   document.getElementById('dist').textContent=(distance_m/1000).toFixed(2)+" km";
   document.getElementById('hm').textContent=totalGain.toFixed(0);
   // Echte Werte vom KICKR einsetzen:
-  // document.getElementById('power').textContent = <echte Watt>;
-  // document.getElementById('cadence').textContent = <echte Kadenz>;
-  // document.getElementById('slope').textContent = <echte Steigung>;
+  // document.getElementById('power').textContent = Watt;
+  // document.getElementById('cadence').textContent = Kadenz;
+  // document.getElementById('slope').textContent = Steigung;
 }
 
 function haversine(lat1,lon1,lat2,lon2){
@@ -181,4 +182,8 @@ function haversine(lat1,lon1,lat2,lon2){
   const dLat=toRad(lat2-lat1), dLon=toRad(lon2-lon1);
   const a=Math.sin(dLat/2)**2+
            Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
-  return 2*R*Math.asin(Math.sqrt(a
+  return 2*R*Math.asin(Math.sqrt(a));
+}
+</script>
+</body>
+</html>
