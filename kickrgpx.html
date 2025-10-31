@@ -10,12 +10,18 @@ html, body {height:100%; margin:0; padding:0; overflow:hidden;}
 #controls {
   position:absolute; top:10px; left:10px; z-index:10001;
   background: rgba(255,255,255,0.9); padding:10px; border-radius:8px;
+  box-shadow:0 2px 6px rgba(0,0,0,0.3);
 }
 #controls input, #controls button {margin-top:4px; display:block;}
-#themeBtn, #fullscreenBtn, #connectBtn, #loadFileBtn {
-  background:#222; color:#fff; border:none; padding:6px 10px; border-radius:6px; cursor:pointer; font-weight:bold;
+button {
+  border:none; padding:8px 10px; border-radius:6px; font-weight:bold; cursor:pointer;
 }
 #themeBtn.light {background:#eee; color:#222;}
+#fullscreenBtn {background:#444; color:#fff;}
+#connectBtn {background:#666; color:#fff; transition:all 0.3s;}
+#connectBtn.connecting {background:#ffcc00; color:#000;}
+#connectBtn.connected {background:#0a0; color:#fff;}
+#loadFileBtn {background:#008cff; color:#fff;}
 #stats {
   position:absolute; bottom:15px; left:15px; z-index:10001;
   background:rgba(0,0,0,0.7); color:#fff; font-family:sans-serif;
@@ -49,74 +55,74 @@ html, body {height:100%; margin:0; padding:0; overflow:hidden;}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/togeojson/0.16.0/togeojson.min.js"></script>
 
 <script>
-// Map Setup
+// MAP
 let map = L.map('map').setView([51.5, 10],6);
-const osmLight = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19, attribution:'&copy; OpenStreetMap'});
-const osmDark = L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png',{maxZoom:20, attribution:'&copy; OpenStreetMap & Stadia Maps'});
+const osmLight = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19});
+const osmDark = L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png',{maxZoom:20});
 let currentLayer = osmLight.addTo(map);
 let darkMode=false;
 
-// Theme Toggle
+// THEME
 document.getElementById('themeBtn').addEventListener('click', ()=>{
   map.removeLayer(currentLayer);
-  const btn = document.getElementById('themeBtn');
+  const btn=document.getElementById('themeBtn');
   if(darkMode){ currentLayer=osmLight.addTo(map); btn.textContent="🌞 Tag"; btn.classList.add("light"); darkMode=false;}
-  else{ currentLayer=osmDark.addTo(map); btn.textContent="🌙 Nacht"; btn.classList.remove("light"); darkMode=true;}
+  else { currentLayer=osmDark.addTo(map); btn.textContent="🌙 Nacht"; btn.classList.remove("light"); darkMode=true;}
 });
 
-// Fullscreen
+// FULLSCREEN
 document.getElementById('fullscreenBtn').addEventListener('click', ()=>{
-  const el=document.getElementById('map');
-  if(!document.fullscreenElement){ if(el.requestFullscreen) el.requestFullscreen(); }
-  else { if(document.exitFullscreen) document.exitFullscreen(); }
+  const el=document.documentElement;
+  if(!document.fullscreenElement){ el.requestFullscreen(); }
+  else { document.exitFullscreen(); }
 });
 
 // GPX
-let coords=[], elevations=[];
-let marker=null, routeLine=null;
-document.getElementById('loadFileBtn').addEventListener('click',()=>{ document.getElementById('gpxfile').click(); });
+let coords=[], elevations=[], marker=null, routeLine=null;
+document.getElementById('loadFileBtn').addEventListener('click',()=>document.getElementById('gpxfile').click());
 document.getElementById('gpxfile').addEventListener('change', e=>{
-  const file = e.target.files[0]; if(!file) return;
-  const reader = new FileReader();
-  reader.onload = evt=>{
+  const file=e.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=evt=>{
     try{
-      const gpxDoc = new DOMParser().parseFromString(evt.target.result,"application/xml");
-      const geo = toGeoJSON.gpx(gpxDoc);
-      const feature = geo.features.find(f=>f.geometry?.type==="LineString");
-      if(!feature){alert("Keine Trackdaten gefunden."); return;}
-      coords = feature.geometry.coordinates.map(c=>[c[1],c[0]]);
-      elevations = feature.geometry.coordinates.map(c=>c[2]||0);
+      const gpxDoc=new DOMParser().parseFromString(evt.target.result,"application/xml");
+      const geo=toGeoJSON.gpx(gpxDoc);
+      const feature=geo.features.find(f=>f.geometry?.type==="LineString");
+      if(!feature){alert("Keine Trackdaten gefunden.");return;}
+      coords=feature.geometry.coordinates.map(c=>[c[1],c[0]]);
+      elevations=feature.geometry.coordinates.map(c=>c[2]||0);
       if(routeLine) map.removeLayer(routeLine);
-      routeLine = L.polyline(coords,{color:'#00aaff',weight:4}).addTo(map);
+      routeLine=L.polyline(coords,{color:'#00aaff',weight:4}).addTo(map);
       if(marker) map.removeLayer(marker);
-      marker = L.marker(coords[0]).addTo(map);
+      marker=L.marker(coords[0]).addTo(map);
       map.fitBounds(routeLine.getBounds());
-      ['hm','slope','power','distance'].forEach(id=>document.getElementById(id).textContent="0");
-    }catch(err){console.error(err); alert("Fehler beim Laden der GPX-Datei.");}
+    }catch(err){alert("Fehler beim Laden der GPX-Datei.");}
   };
   reader.readAsText(file);
 });
 
-// Stats
+// STATS
 let startTime=null, timer=null, distance=0, totalGain=0, lastTrittTime=Date.now();
 function formatTime(ms){ let s=Math.floor(ms/1000); let m=Math.floor(s/60); s=s%60; return m+":"+String(s).padStart(2,'0'); }
 function updateTime(){ if(startTime) document.getElementById('time').textContent=formatTime(Date.now()-startTime); }
 function updateStats(lat, lon, elev, cad, power, dist){
-  if(!marker) marker=L.marker([lat, lon]).addTo(map);
-  marker.setLatLng([lat, lon]);
-  map.panTo([lat, lon], {animate:true, duration:0.5});
-  document.getElementById('power').textContent = Math.round(power);
-  document.getElementById('cadence').textContent = Math.round(cad);
-  document.getElementById('distance').textContent = (dist/1000).toFixed(2);
-  document.getElementById('hm').textContent = Math.round(elev);
+  if(!marker) marker=L.marker([lat,lon]).addTo(map);
+  marker.setLatLng([lat,lon]);
+  map.panTo([lat,lon], {animate:true, duration:0.5});
+  document.getElementById('power').textContent=Math.round(power);
+  document.getElementById('cadence').textContent=Math.round(cad);
+  document.getElementById('distance').textContent=(dist/1000).toFixed(2);
+  document.getElementById('hm').textContent=Math.round(elev);
 }
 
-// KICKR Live Connect
+// KICKR CONNECTION
 document.getElementById('connectBtn').addEventListener('click', async ()=>{
+  const btn=document.getElementById('connectBtn');
   try{
+    btn.textContent="🟡 Verbinde..."; btn.className="connecting";
     const device = await navigator.bluetooth.requestDevice({filters:[{namePrefix:"KICKR"}], optionalServices:[0x1816,0x1818]});
     const server = await device.gatt.connect();
-    alert("KICKR CORE verbunden!");
+    btn.textContent="🟢 KICKR verbunden ✅"; btn.className="connected";
     startTime=Date.now();
     timer=setInterval(updateTime,1000);
 
@@ -124,36 +130,38 @@ document.getElementById('connectBtn').addEventListener('click', async ()=>{
     const powerChar = await service.getCharacteristic(0x2A63);
     powerChar.startNotifications();
     powerChar.addEventListener('characteristicvaluechanged', e=>{
-      lastTrittTime = Date.now();
-      // Demo-Parsing
-      let power=75; 
-      let cad=90;
-      let lat=coords[0]?[coords[0][0]]:51.5;
-      let lon=coords[0]?[coords[0][1]]:10;
+      lastTrittTime=Date.now();
+      let power=75, cad=90;
+      let lat=coords.length ? coords[0][0] : 51.5;
+      let lon=coords.length ? coords[0][1] : 10;
       let elev=totalGain+5; totalGain=elev;
       distance+=5;
-      updateStats(lat, lon, elev, cad, power, distance);
+      updateStats(lat,lon,elev,cad,power,distance);
     });
 
-    // 10-Sekunden-Pause-Abfrage
+    // 10 Sekunden Pause -> Abfrage
     setInterval(()=>{
-      if(Date.now() - lastTrittTime > 10000){
+      if(Date.now()-lastTrittTime>10000 && startTime){
         if(confirm("Möchtest du die Session beenden?")){
           clearInterval(timer);
-          alert(`Distanz: ${(distance/1000).toFixed(2)} km\nZeit: ${formatTime(Date.now()-startTime)}\nHöhenmeter: ${Math.round(totalGain)} m\nLeistung: ${Math.round(75)} W\nKadenz: ${Math.round(90)} rpm`);
+          alert(`Distanz: ${(distance/1000).toFixed(2)} km\nZeit: ${formatTime(Date.now()-startTime)}\nHöhenmeter: ${Math.round(totalGain)} m\nLeistung: 75 W\nKadenz: 90 rpm`);
           startTime=null; distance=0; totalGain=0; lastTrittTime=Date.now();
-        }else{
-          lastTrittTime = Date.now();
+          btn.textContent="🔗 KICKR CORE verbinden"; btn.className="";
+        } else {
+          lastTrittTime=Date.now();
         }
       }
-    },500);
+    },1000);
 
-  }catch(e){console.error(e); alert("Verbindung fehlgeschlagen: "+e);}
+  }catch(e){
+    btn.textContent="❌ Verbindung fehlgeschlagen"; btn.className="";
+    console.error(e);
+    alert("Verbindung fehlgeschlagen: "+e);
+  }
 });
 
-// Resize
-window.addEventListener('resize',()=>{map.invalidateSize();});
+// RESIZE FIX
+window.addEventListener('resize',()=>map.invalidateSize());
 </script>
-
 </body>
 </html>
