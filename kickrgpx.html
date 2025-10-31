@@ -3,59 +3,497 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Kickr Live Tracker</title>
+<title>Kickr Live — Final</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
-:root{
-  --topbar-h:64px;
-  --accent:#00aaff;
-  --bg-panel: rgba(17,17,17,0.85);
-  --bg-controls: rgba(255,255,255,0.85);
-  --panel-radius:12px;
-}
-html,body{height:100%;margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Arial;}
-#map{position:fixed; inset:0; z-index:1;}
+  :root{
+    --topbar-h:64px;
+    --accent:#00aaff;
+    --dark-bg: rgba(12,12,12,0.86);
+    --controls-bg: rgba(255,255,255,0.85);
+    --controls-bg-faint: rgba(255,255,255,0.72);
+    --panel-radius:10px;
+  }
+  html,body{height:100%;margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial;}
+  /* map full screen */
+  #map{position:fixed; inset:0; z-index:1;}
 
-/* Topbar */
-#topbar{
-  position:fixed; top:8px; left:8px; right:8px; height:var(--topbar-h);
-  z-index:10010; background:var(--bg-panel); color:#fff;
-  border-radius:var(--panel-radius); display:flex; align-items:center;
-  justify-content:space-around; padding:8px 12px; box-shadow:0 6px 18px rgba(0,0,0,0.35);
-  backdrop-filter: blur(6px);
-}
-#topbar .cell{display:flex;flex-direction:column;align-items:center;min-width:70px;}
-#topbar .label{font-size:12px;color:rgba(255,255,255,0.75);font-weight:500}
-#topbar .value{font-size:18px;font-weight:700;margin-top:4px}
+  /* topbar: big values */
+  #topbar{
+    position:fixed; top:10px; left:10px; right:10px; height:var(--topbar-h);
+    z-index:10020;
+    background:var(--dark-bg);
+    color:#fff;
+    border-radius:var(--panel-radius);
+    display:flex;
+    align-items:center;
+    justify-content:space-around;
+    padding:8px 12px;
+    box-shadow:0 8px 20px rgba(0,0,0,0.35);
+    backdrop-filter: blur(6px);
+  }
+  #topbar .cell{display:flex;flex-direction:column;align-items:center;min-width:70px;margin:0 6px;}
+  #topbar .label{font-size:11px;color:rgba(255,255,255,0.75);font-weight:500}
+  #topbar .value{font-size:18px;font-weight:700;margin-top:4px}
 
-/* Controls below topbar */
-#controls{
-  position:fixed; top:calc(8px + var(--topbar-h) + 6px); left:8px; right:8px; z-index:10011;
-  background:var(--bg-controls); padding:6px 10px; border-radius:10px;
-  display:flex; flex-wrap:wrap; gap:6px; justify-content:flex-start; align-items:center;
-  box-shadow:0 6px 14px rgba(0,0,0,0.25); backdrop-filter: blur(2px);
-  opacity:0.95;
-}
-#controls input[type="number"]{width:64px;padding:4px;border-radius:6px;border:1px solid #ddd;font-size:14px;}
-#controls button{border:0;padding:6px 10px;border-radius:8px;cursor:pointer;font-weight:600;font-size:14px;}
-#connectBtn{background:#666;color:#fff;transition:all .22s;}
-#connectBtn.connecting{background:#ffcc00;color:#111;}
-#connectBtn.connected{background:#0bbf4a;color:#fff;}
-#loadFileBtn{background:var(--accent);color:#fff;}
-#fullscreenBtn{background:#444;color:#fff;}
+  /* controls under topbar (compact, semi-transparent) */
+  #controls{
+    position:fixed; top:calc(10px + var(--topbar-h) + 8px); left:10px; right:10px; z-index:10021;
+    background:var(--controls-bg);
+    border-radius:10px;
+    display:flex;
+    gap:8px;
+    align-items:center;
+    padding:8px 10px;
+    box-shadow:0 8px 18px rgba(0,0,0,0.18);
+    backdrop-filter: blur(2px);
+  }
+  #controls .group{display:flex; gap:8px; align-items:center;}
+  label{font-size:13px;color:#333;display:flex;gap:8px;align-items:center;}
+  input[type="number"]{width:68px;padding:6px;border-radius:6px;border:1px solid #ddd;font-size:13px;}
+  button{border:0;padding:8px 10px;border-radius:8px;cursor:pointer;font-weight:600;font-size:14px;}
+  #connectBtn{background:#666;color:#fff;min-width:160px;transition:all .18s;}
+  #connectBtn.connecting{background:#ffcc00;color:#111;}
+  #connectBtn.connected{background:#0bbf4a;color:#fff;}
+  #loadFileBtn{background:var(--accent);color:#fff;}
+  #fullscreenBtn{background:#444;color:#fff;}
 
-/* Summary modal */
-#summary{
-  position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); z-index:10020;
-  background:#111;color:#fff;padding:18px;border-radius:12px;display:none;min-width:260px;
-  box-shadow:0 12px 30px rgba(0,0,0,0.5);
-}
-#summary button{margin-top:12px;background:#0bbf4a;color:#fff;border-radius:8px;padding:8px 12px;border:0}
+  /* summary modal */
+  #summary{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:10030;
+    background:#0b0b0b;color:#fff;padding:18px;border-radius:10px;display:none;min-width:260px;box-shadow:0 14px 40px rgba(0,0,0,0.6);}
+  #summary button{margin-top:12px;background:#0bbf4a;color:#fff;border:0;padding:8px 12px;border-radius:8px;font-weight:700}
 
-/* Hidden file input */
-#gpxfile{display:none}
+  /* responsiveness */
+  @media (max-width:700px){
+    #topbar{height:56px;padding:6px}
+    #topbar .value{font-size:15px}
+    #controls{flex-wrap:wrap;padding:6px}
+    #connectBtn{min-width:120px}
+  }
 </style>
 </head>
 <body>
 
-<!-- Topbar with live values
+<!-- Topbar -->
+<div id="topbar" aria-hidden="false">
+  <div class="cell"><span class="label">Distanz</span><span id="top-distance" class="value">0.00 km</span></div>
+  <div class="cell"><span class="label">Zeit</span><span id="top-time" class="value">0:00</span></div>
+  <div class="cell"><span class="label">Leistung</span><span id="top-power" class="value">0 W</span></div>
+  <div class="cell"><span class="label">Höhenmeter</span><span id="top-hm" class="value">0 m</span></div>
+  <div class="cell"><span class="label">Steigung</span><span id="top-slope" class="value">0 %</span></div>
+  <div class="cell"><span class="label">Kadenz</span><span id="top-cad" class="value">0 rpm</span></div>
+</div>
+
+<!-- Controls under topbar -->
+<div id="controls" role="region" aria-label="Steuerung">
+  <div class="group">
+    <label>Gewicht<input id="weight" type="number" value="75" min="30" max="150"/></label>
+  </div>
+
+  <div class="group">
+    <button id="connectBtn">🔗 KICKR verbinden</button>
+  </div>
+
+  <div class="group">
+    <button id="loadFileBtn">📁 GPX laden</button>
+    <input id="gpxfile" type="file" accept=".gpx"/>
+  </div>
+
+  <div class="group" style="margin-left:auto">
+    <button id="fullscreenBtn" title="Vollbild">⛶</button>
+  </div>
+</div>
+
+<!-- Map -->
+<div id="map" aria-hidden="false"></div>
+
+<!-- Summary modal -->
+<div id="summary" role="dialog" aria-modal="true">
+  <div id="summary-text"></div>
+  <button id="summary-ok">OK</button>
+</div>
+
+<!-- libs -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/togeojson/0.16.0/togeojson.min.js"></script>
+
+<script>
+/* =========================
+   State & config
+   ========================= */
+const WHEEL_CIRCUM_M = 2.095; // average wheel circumference
+const DEFAULT_GEAR_RATIO = 2.5;
+
+let map = L.map('map', {zoomControl:true, attributionControl:false}).setView([51.5,10], 12);
+const tiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+
+let coords = [];             // [[lat,lon], ...]
+let elevations = [];         // elevation array (meters)
+let routeLine = null;
+let marker = null;
+
+let routeIndex = 0;          // index of current segment start
+let offsetOnSegment = 0;     // meters into current segment
+
+// Session stats
+let distance_m = 0;
+let totalGain = 0;
+let startTime = null;
+let timerInterval = null;
+
+let lastTrittTime = Date.now();
+let connected = false;
+let deviceServer = null;
+
+// Live metrics (updated from device parsing)
+let currentPower = 0;
+let currentCadence = 0;
+let currentSlope = 0;
+let gearRatio = DEFAULT_GEAR_RATIO;
+
+/* UI elements */
+const btnConnect = document.getElementById('connectBtn');
+const btnLoad = document.getElementById('loadFileBtn');
+const inputGPX = document.getElementById('gpxfile');
+const btnFullscreen = document.getElementById('fullscreenBtn');
+const weightInput = document.getElementById('weight');
+const topDistance = document.getElementById('top-distance');
+const topTime = document.getElementById('top-time');
+const topPower = document.getElementById('top-power');
+const topHM = document.getElementById('top-hm');
+const topSlope = document.getElementById('top-slope');
+const topCad = document.getElementById('top-cad');
+const summaryModal = document.getElementById('summary');
+const summaryText = document.getElementById('summary-text');
+const summaryOk = document.getElementById('summary-ok');
+
+/* =========================
+   Helpers
+   ========================= */
+function formatTime(ms){
+  if(!ms) return "0:00";
+  const s = Math.floor(ms/1000);
+  const m = Math.floor(s/60);
+  return `${m}:${String(s%60).padStart(2,'0')}`;
+}
+function setTopValues(){
+  topDistance.textContent = (distance_m/1000).toFixed(2) + ' km';
+  topTime.textContent = startTime ? formatTime(Date.now()-startTime) : '0:00';
+  topPower.textContent = Math.round(currentPower||0) + ' W';
+  topHM.textContent = Math.round(totalGain||0) + ' m';
+  topSlope.textContent = (currentSlope||0).toFixed(1) + ' %';
+  topCad.textContent = Math.round(currentCadence||0) + ' rpm';
+}
+
+/* Haversine in meters */
+function haversine(lat1,lon1,lat2,lon2){
+  const R = 6371000;
+  const toRad = d => d * Math.PI/180;
+  const dLat = toRad(lat2-lat1), dLon = toRad(lon2-lon1);
+  const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
+  return 2*R*Math.asin(Math.sqrt(a));
+}
+
+/* Advance along loaded GPX by meters */
+function advanceAlongRoute(meters){
+  if(!coords.length) return;
+  let remaining = meters;
+  while(remaining > 0 && routeIndex < coords.length-1){
+    const [lat1,lon1] = coords[routeIndex];
+    const [lat2,lon2] = coords[routeIndex+1];
+    const segLen = haversine(lat1,lon1,lat2,lon2);
+    const leftOnSeg = segLen - offsetOnSegment;
+    if(remaining < leftOnSeg){
+      offsetOnSegment += remaining;
+      remaining = 0;
+      const t = offsetOnSegment / segLen;
+      const lat = lat1 + (lat2 - lat1) * t;
+      const lon = lon1 + (lon2 - lon1) * t;
+      const elev = (elevations[routeIndex] || 0) + ((elevations[routeIndex+1]||0) - (elevations[routeIndex]||0)) * t;
+      updateMarkerAndStats(lat, lon, elev);
+      break;
+    } else {
+      remaining -= leftOnSeg;
+      routeIndex++;
+      offsetOnSegment = 0;
+      updateMarkerAndStats(coords[routeIndex][0], coords[routeIndex][1], elevations[routeIndex] || 0);
+    }
+  }
+  if(routeIndex >= coords.length-1){
+    // Reached end
+    onRouteFinished();
+  }
+}
+
+/* Update marker + pan + stats values */
+function updateMarkerAndStats(lat, lon, elev){
+  if(!marker){
+    marker = L.marker([lat, lon]).addTo(map);
+  } else {
+    marker.setLatLng([lat, lon]);
+  }
+  // smooth follow (preserve zoom)
+  map.panTo([lat, lon], {animate:true, duration:0.6});
+  // update elevation gain heuristically (we keep max elevation seen)
+  if(typeof elev === 'number'){
+    totalGain = Math.max(totalGain, elev);
+  }
+  setTopValues();
+}
+
+/* Called when route ends */
+function onRouteFinished(){
+  stopTimer();
+  showSummary();
+}
+
+/* Timer control */
+function startTimer(){
+  if(startTime) return;
+  startTime = Date.now();
+  timerInterval = setInterval(() => setTopValues(), 1000);
+}
+function stopTimer(){
+  if(timerInterval) clearInterval(timerInterval);
+  timerInterval = null;
+  startTime = null;
+}
+
+/* Summary modal */
+function showSummary(){
+  const elapsed = startTime ? (Date.now() - startTime) : 0;
+  summaryText.innerHTML = `<b>Gesamtwerte</b><br>
+    Distanz: ${(distance_m/1000).toFixed(2)} km<br>
+    Zeit: ${formatTime(elapsed)}<br>
+    Höhenmeter: ${Math.round(totalGain)} m<br>
+    Leistung (akt): ${Math.round(currentPower||0)} W<br>
+    Kadenz (akt): ${Math.round(currentCadence||0)} rpm`;
+  summaryModal.style.display = 'block';
+}
+summaryOk.addEventListener('click', ()=> summaryModal.style.display = 'none');
+
+/* =========================
+   GPX load
+   ========================= */
+btnLoad.addEventListener('click', ()=> inputGPX.click());
+
+inputGPX.addEventListener('change', e=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = evt => {
+    try{
+      const gpxDoc = new DOMParser().parseFromString(evt.target.result, "application/xml");
+      const geo = toGeoJSON.gpx(gpxDoc);
+      const feature = geo.features.find(f => f.geometry?.type === "LineString");
+      if(!feature){ alert("Keine Trackdaten gefunden."); return; }
+      coords = feature.geometry.coordinates.map(c => [c[1], c[0]]);
+      elevations = feature.geometry.coordinates.map(c => c[2] || 0);
+      routeIndex = 0;
+      offsetOnSegment = 0;
+      distance_m = 0;
+      totalGain = elevations[0] || 0;
+      if(routeLine) map.removeLayer(routeLine);
+      routeLine = L.polyline(coords, {color:'#00aaff', weight:4}).addTo(map);
+      if(marker) marker.setLatLng(coords[0]); else marker = L.marker(coords[0]).addTo(map);
+      map.fitBounds(routeLine.getBounds(), {padding:[60,60]});
+      setTopValues();
+      alert("GPX geladen — starte dein Training am KICKR.");
+    }catch(err){
+      console.error(err);
+      alert("Fehler beim Parsen der GPX-Datei.");
+    }
+  };
+  reader.readAsText(file);
+});
+
+/* =========================
+   KICKR connection (Web Bluetooth, best-effort)
+   ========================= */
+let currentPower = 0;
+let currentCadence = 0;
+let currentSlope = 0;
+
+async function connectKickr(){
+  try{
+    btnConnect.textContent = "🟡 Verbinde...";
+    btnConnect.classList.add('connecting');
+    const device = await navigator.bluetooth.requestDevice({
+      filters: [{namePrefix: "KICKR"}],
+      optionalServices: [0x1818, 0x1816, 0x1814] // Cycling Power, CSC, etc.
+    });
+    device.addEventListener('gattserverdisconnected', onDisconnected);
+    const server = await device.gatt.connect();
+    deviceServer = server;
+    connected = true;
+    btnConnect.textContent = "🟢 KICKR verbunden";
+    btnConnect.classList.remove('connecting');
+    btnConnect.classList.add('connected');
+    startTimer();
+
+    // try Cycling Power measurement
+    try{
+      const cps = await server.getPrimaryService(0x1818);
+      const powerChar = await cps.getCharacteristic(0x2A63);
+      await powerChar.startNotifications();
+      powerChar.addEventListener('characteristicvaluechanged', handlePowerNotification);
+    }catch(err){
+      console.warn("Cycling Power unavailable", err);
+    }
+
+    // try CSC for cadence
+    try{
+      const csc = await server.getPrimaryService(0x1816);
+      const cscChar = await csc.getCharacteristic(0x2A5B);
+      await cscChar.startNotifications();
+      cscChar.addEventListener('characteristicvaluechanged', handleCSCNotification);
+    }catch(err){
+      console.warn("CSC unavailable", err);
+    }
+
+    // movement tick: convert cadence -> speed and advance route when GPX loaded
+    setInterval(()=>{
+      if(!connected) return;
+      // if we have cadence and route, compute meters per second
+      if(currentCadence > 0 && coords.length){
+        // speed (m/s) = cadence (rev/min) * gearRatio * wheelCircumference / 60
+        const gear = gearRatio || DEFAULT_GEAR_RATIO;
+        const speed_m_s = (currentCadence * gear * WHEEL_CIRCUM_M) / 60.0;
+        // advance by one second worth
+        distance_m += speed_m_s;
+        advanceAlongRoute(speed_m_s);
+      } else {
+        // no cadence: nothing moves
+      }
+    }, 1000);
+
+    // pause detector (10s)
+    setInterval(()=>{
+      if(!connected || !startTime) return;
+      if(Date.now() - lastTrittTime > 10000){
+        // prompt
+        const stop = confirm("10 Sekunden ohne Tritt. Möchtest du die Session beenden?");
+        if(stop){
+          stopTimer();
+          showSummary();
+          // cleanup
+          if(deviceServer && deviceServer.connected) deviceServer.disconnect();
+          connected = false;
+          btnConnect.textContent = "🔗 KICKR verbinden";
+          btnConnect.classList.remove('connected');
+        } else {
+          lastTrittTime = Date.now();
+        }
+      }
+    }, 1500);
+
+  }catch(err){
+    console.error(err);
+    btnConnect.textContent = "🔗 KICKR verbinden";
+    btnConnect.classList.remove('connecting');
+    alert("Verbindung fehlgeschlagen: " + (err.message || err));
+  }
+}
+
+function onDisconnected(){
+  connected = false;
+  btnConnect.textContent = "🔗 KICKR verbinden";
+  btnConnect.classList.remove('connected');
+  stopTimer();
+  alert("KICKR getrennt");
+}
+
+/* Best-effort parse for Cycling Power Measurement */
+function handlePowerNotification(event){
+  try{
+    const data = event.target.value;
+    const view = new DataView(data.buffer ? data.buffer : data);
+    // spec: instantaneous power at bytes (offset 2) as sint16 le
+    if(view.byteLength >= 4){
+      try{
+        const instPower = view.getInt16(2, true);
+        currentPower = instPower;
+      }catch(e){}
+    }
+    // naive cadence detection inside payload (best-effort)
+    for(let i=0;i<view.byteLength;i++){
+      const v = view.getUint8(i);
+      if(v>=30 && v<=140){
+        currentCadence = v;
+        lastTrittTime = Date.now();
+      }
+    }
+    setTopValues();
+  }catch(e){
+    console.warn("power parse err", e);
+  }
+}
+
+/* Best-effort parse for CSC notifications (cadence) */
+function handleCSCNotification(event){
+  try{
+    const data = event.target.value;
+    const view = new DataView(data.buffer ? data.buffer : data);
+    // quick search for plausible cadence
+    for(let i=0;i<view.byteLength;i++){
+      const v = view.getUint8(i);
+      if(v>=20 && v<=140){
+        currentCadence = v;
+        lastTrittTime = Date.now();
+        break;
+      }
+    }
+    setTopValues();
+  }catch(e){
+    console.warn("csc parse err", e);
+  }
+}
+
+/* connect button */
+btnConnect.addEventListener('click', ()=>{
+  if(connected){
+    if(deviceServer && deviceServer.connected) deviceServer.disconnect();
+    connected = false;
+    btnConnect.textContent = "🔗 KICKR verbinden";
+    btnConnect.classList.remove('connected');
+    stopTimer();
+  } else {
+    connectKickr();
+  }
+});
+
+/* fullscreen */
+btnFullscreen.addEventListener('click', ()=>{
+  const el = document.documentElement;
+  if(!document.fullscreenElement) el.requestFullscreen?.();
+  else document.exitFullscreen?.();
+});
+
+/* map click for debug / manual simulate (small convenience) */
+map.on('click', (e)=>{
+  // only for debug: simulate a pedal stroke (if connected) so users can test without device
+  if(!connected) return;
+  lastTrittTime = Date.now();
+  currentCadence = Math.max(currentCadence, 60);
+  // simulate a small movement if no GPX
+  if(!coords.length){
+    // just pan
+    map.panTo(e.latlng, {animate:true, duration:0.6});
+  }
+});
+
+/* keep top values visible immediately */
+setTopValues();
+
+/* ensure map redraw on resize */
+window.addEventListener('resize', ()=> map.invalidateSize());
+
+/* expose debug helpers (console) */
+window._kickr = {
+  setCadence: c => { currentCadence = c; lastTrittTime = Date.now(); },
+  setPower: p => { currentPower = p; setTopValues(); },
+  advanceMeters: m => { distance_m += m; advanceAlongRoute(m); }
+};
+</script>
+</body>
+</html>
