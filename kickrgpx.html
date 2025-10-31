@@ -10,6 +10,7 @@
   --topbar-h:64px;
   --accent:#00aaff;
   --bg-panel: rgba(17,17,17,0.85);
+  --bg-controls: rgba(255,255,255,0.85);
   --panel-radius:12px;
 }
 html,body{height:100%;margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Arial;}
@@ -30,9 +31,10 @@ html,body{height:100%;margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Arial
 /* Controls below topbar */
 #controls{
   position:fixed; top:calc(8px + var(--topbar-h) + 6px); left:8px; right:8px; z-index:10011;
-  background:rgba(255,255,255,0.95); padding:6px 10px; border-radius:10px;
+  background:var(--bg-controls); padding:6px 10px; border-radius:10px;
   display:flex; flex-wrap:wrap; gap:6px; justify-content:flex-start; align-items:center;
   box-shadow:0 6px 14px rgba(0,0,0,0.25); backdrop-filter: blur(2px);
+  opacity:0.95;
 }
 #controls input[type="number"]{width:64px;padding:4px;border-radius:6px;border:1px solid #ddd;font-size:14px;}
 #controls button{border:0;padding:6px 10px;border-radius:8px;cursor:pointer;font-weight:600;font-size:14px;}
@@ -56,109 +58,4 @@ html,body{height:100%;margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Arial
 </head>
 <body>
 
-<!-- Topbar with live values -->
-<div id="topbar">
-  <div class="cell"><span class="label">Distanz</span><span id="top-distance" class="value">0.00 km</span></div>
-  <div class="cell"><span class="label">Zeit</span><span id="top-time" class="value">0:00</span></div>
-  <div class="cell"><span class="label">Leistung</span><span id="top-power" class="value">0 W</span></div>
-  <div class="cell"><span class="label">Höhenmeter</span><span id="top-hm" class="value">0 m</span></div>
-  <div class="cell"><span class="label">Steigung</span><span id="top-slope" class="value">0 %</span></div>
-  <div class="cell"><span class="label">Kadenz</span><span id="top-cad" class="value">0 rpm</span></div>
-</div>
-
-<!-- Controls under topbar -->
-<div id="controls">
-  <label>Gewicht (kg)<input id="weight" type="number" value="75" min="30" max="150"/></label>
-  <button id="connectBtn">🔗 KICKR verbinden</button>
-  <button id="loadFileBtn">📁 GPX laden</button>
-  <input id="gpxfile" type="file" accept=".gpx"/>
-  <button id="fullscreenBtn">⛶</button>
-</div>
-
-<!-- Map -->
-<div id="map"></div>
-
-<!-- Summary modal -->
-<div id="summary">
-  <div id="summary-text"></div>
-  <button id="summary-ok">OK</button>
-</div>
-
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/togeojson/0.16.0/togeojson.min.js"></script>
-<script>
-let map = L.map('map',{zoomControl:true}).setView([51.5,10],12);
-const lightTiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
-
-let coords=[], elevations=[], routeIndex=0, offsetOnSegment=0;
-let marker=null, routeLine=null;
-let distance_m=0, totalGain=0, startTime=null, timerInterval=null;
-let currentPower=0, currentCadence=0, currentSlope=0;
-let connected=false, lastTrittTime=Date.now();
-
-const btnConnect = document.getElementById('connectBtn');
-const btnLoad = document.getElementById('loadFileBtn');
-const inputGPX = document.getElementById('gpxfile');
-const topDistance = document.getElementById('top-distance');
-const topTime = document.getElementById('top-time');
-const topPower = document.getElementById('top-power');
-const topHM = document.getElementById('top-hm');
-const topSlope = document.getElementById('top-slope');
-const topCad = document.getElementById('top-cad');
-const weightInput = document.getElementById('weight');
-const summaryModal = document.getElementById('summary');
-const summaryText = document.getElementById('summary-text');
-const summaryOk = document.getElementById('summary-ok');
-
-function formatTime(ms){const s=Math.floor(ms/1000);const m=Math.floor(s/60);return `${m}:${String(s%60).padStart(2,'0')}`;}
-function setTopValues(){
-  topDistance.textContent=(distance_m/1000).toFixed(2)+' km';
-  topTime.textContent=startTime?formatTime(Date.now()-startTime):'0:00';
-  topPower.textContent=Math.round(currentPower||0)+' W';
-  topHM.textContent=Math.round(totalGain)+' m';
-  topSlope.textContent=(currentSlope||0).toFixed(1)+' %';
-  topCad.textContent=Math.round(currentCadence||0)+' rpm';
-}
-
-function haversine(lat1,lon1,lat2,lon2){
-  const R=6371000,toRad=d=>d*Math.PI/180;
-  const dLat=toRad(lat2-lat1), dLon=toRad(lon2-lon1);
-  const a=Math.sin(dLat/2)**2+Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
-  return 2*R*Math.asin(Math.sqrt(a));
-}
-
-function advanceAlongRoute(m){
-  if(!coords.length) return;
-  let rem=m;
-  while(rem>0 && routeIndex<coords.length-1){
-    const [lat1,lon1]=coords[routeIndex];
-    const [lat2,lon2]=coords[routeIndex+1];
-    const segLen=haversine(lat1,lon1,lat2,lon2);
-    const left=segLen-offsetOnSegment;
-    if(rem<left){
-      offsetOnSegment+=rem; rem=0;
-      const t=offsetOnSegment/segLen;
-      const lat=lat1+(lat2-lat1)*t;
-      const lon=lon1+(lon2-lon1)*t;
-      updateMarker(lat,lon,elevations[routeIndex]+(elevations[routeIndex+1]-elevations[routeIndex])*t);
-      break;
-    }else{
-      rem-=left; routeIndex++; offsetOnSegment=0;
-      updateMarker(coords[routeIndex][0],coords[routeIndex][1],elevations[routeIndex]);
-    }
-  }
-  if(routeIndex>=coords.length-1) onRouteFinished();
-}
-
-function updateMarker(lat,lon,elev){
-  if(!marker) marker=L.marker([lat,lon]).addTo(map);
-  else marker.setLatLng([lat,lon]);
-  map.panTo([lat,lon],{animate:true,duration:0.6});
-  if(typeof elev==='number') totalGain=Math.max(totalGain,elev);
-  setTopValues();
-}
-
-function onRouteFinished(){stopTimer();showSummary();}
-
-function startTimer(){if(startTime)return; startTime=Date.now(); timerInterval=setInterval(setTopValues,1000);}
-function stopTimer(){if(timerInterval) clearInterval(timerInterval); timerInterval=null; startTime=null
+<!-- Topbar with live values
