@@ -5,98 +5,18 @@
 <title>Kickr Live Tracker</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
-html,body {margin:0;padding:0;height:100%;overflow:hidden;background:#f0f0f0;}
-#map {position:absolute;top:0;left:0;width:100%;height:100%;z-index:1;}
-
-/* Modal Overlay für Pflichtfelder */
-#modalOverlay {
-  position:fixed;
-  top:0;left:0;width:100%;height:100%;
-  background:rgba(0,0,0,0.7);
-  z-index:3000;
-  display:flex;
-  justify-content:center;
-  align-items:center;
-}
-#modalContent {
-  background:#fff;
-  border-radius:12px;
-  padding:20px;
-  width:300px;
-  display:flex;
-  flex-direction:column;
-  gap:12px;
-  font-family:sans-serif;
-  box-shadow:0 6px 20px rgba(0,0,0,0.35);
-  text-align:center;
-}
+html,body{margin:0;padding:0;height:100%;width:100%;overflow:hidden;background:#000;}
+#map{position:absolute;top:0;left:0;width:100%;height:100%;z-index:1;}
+#modalOverlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:3000;display:flex;justify-content:center;align-items:center;}
+#modalContent{background:#fff;border-radius:12px;padding:20px;width:320px;display:flex;flex-direction:column;gap:12px;font-family:sans-serif;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,0.35);}
 #modalContent input,#modalContent button{padding:6px 10px;border:none;border-radius:6px;font-size:13px;cursor:pointer;}
 #modalContent button{background:#4facfe;color:#fff;font-weight:600;}
-
-/* Infobalken */
-#infobar{
-  position:fixed;
-  top:10px;
-  left:10px;
-  background: linear-gradient(135deg, #4facfe, #00f2fe);
-  color:#fff;
-  padding:14px 20px;
-  border-radius:14px;
-  z-index:1000;
-  font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  font-weight:600;
-  font-size:14px;
-  display:flex;
-  flex-direction:column;
-  gap:6px;
-  box-shadow:0 6px 20px rgba(0,0,0,0.35);
-}
-#infobar span{
-  display:flex;
-  gap:20px;
-  justify-content:flex-start;
-  align-items:center;
-}
+#infobar{position:fixed;top:10px;left:10px;right:10px;margin:0 auto;background: linear-gradient(135deg, #4facfe, #00f2fe); color:#fff; padding:14px 20px; border-radius:14px; z-index:1000; font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-weight:600; font-size:14px; display:flex; flex-direction:column; gap:6px; box-shadow:0 6px 20px rgba(0,0,0,0.35);}
+#infobar span{display:flex; gap:20px; justify-content:flex-start; align-items:center;}
 #infobar span b{font-weight:700;}
-
-/* Höhenprofil */
-#elevChart{
-  position:fixed;
-  bottom:0;
-  left:0;
-  width:100%;
-  height:15%;
-  background:#888; /* undurchsichtiges Grau */
-  z-index:900;
-  border-top:2px solid #000;
-}
-
-/* Popup Zusammenfassung mit Kickr-Bild */
-#popupSummary{
-  position:fixed;top:15%;left:50%;transform:translateX(-50%);
-  width:66%;height:auto;
-  background: rgba(255,255,255,0.9) url('kickr_mountain.png') no-repeat center center;
-  background-size: cover;
-  color:#000;
-  z-index:2000;
-  padding:20px;
-  border-radius:12px;
-  font-family:sans-serif;
-  font-size:16px;
-  display:none;
-  text-align:center;
-  box-shadow: 0 6px 20px rgba(0,0,0,0.35);
-}
-#popupSummary button{
-  margin-top:15px;
-  padding:6px 12px;
-  border:none;
-  border-radius:8px;
-  background:#4facfe;
-  color:#fff;
-  cursor:pointer;
-  font-weight:600;
-}
+#elevChart{position:fixed; bottom:0; left:0; width:100%; height:15%; background:#888; z-index:900; border-top:2px solid #000;}
+#popupSummary{position:fixed; top:15%; left:50%; transform:translateX(-50%); width:66%; height:auto; background: rgba(255,255,255,0.95); color:#000; z-index:2000; padding:20px; border-radius:12px; font-family:sans-serif; font-size:16px; display:none; text-align:center; box-shadow: 0 6px 20px rgba(0,0,0,0.35);}
+#popupSummary button{margin-top:15px; padding:6px 12px; border:none; border-radius:8px; background:#4facfe; color:#fff; cursor:pointer; font-weight:600;}
 </style>
 </head>
 <body>
@@ -112,16 +32,19 @@ html,body {margin:0;padding:0;height:100%;overflow:hidden;background:#f0f0f0;}
 </div>
 
 <div id="infobar">
-  <span>
-    <b>Distanz:</b> <span id="dist">0.00 km</span> 
-    <b>Zeit:</b> <span id="time">00:00</span> 
-    <b>HM:</b> <span id="hm">0</span>
-  </span>
-  <span>
-    <b>Watt:</b> <span id="power">0</span> 
-    <b>Kadenz:</b> <span id="cadence">0</span> 
-    <b>Steigung:</b> <span id="slope">0%</span>
-  </span>
+  <div style="display:flex;justify-content:space-between;align-items:center;">
+    <div>
+      <span><b>Distanz:</b> <span id="dist">0.00 km</span></span>
+      <span><b>Zeit:</b> <span id="time">00:00</span></span>
+      <span><b>HM:</b> <span id="hm">0</span></span>
+    </div>
+    <button id="fullscreenBtn" style="background:#222;color:#fff;border:none;padding:6px 10px;border-radius:6px;cursor:pointer;font-weight:bold;margin-left:10px;">⛶ Vollbild</button>
+  </div>
+  <div style="margin-top:6px;">
+    <span><b>Watt:</b> <span id="power">0</span></span>
+    <span><b>Kadenz:</b> <span id="cadence">0</span></span>
+    <span><b>Steigung:</b> <span id="slope">0%</span></span>
+  </div>
 </div>
 
 <div id="map"></div>
@@ -130,17 +53,21 @@ html,body {margin:0;padding:0;height:100%;overflow:hidden;background:#f0f0f0;}
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/togeojson/0.16.0/togeojson.min.js"></script>
-
 <script>
+// --- Map Setup ---
 let map=L.map('map').setView([51.5,10],7);
 const osm=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap'}).addTo(map);
 
+// --- Variables ---
 let coords=[], elevations=[], routeLine=null, marker=null;
 let totalGain=0, distance_m=0, seconds=0;
 let i=0, paused=false, follow=true;
 let weight=0, kickrConnected=false;
-let currentCadence=0, currentWatt=0, rpmTimeout=null;
+let currentCadence=0, currentWatt=0;
+let rpmTimeout=null;
+let lastTime=Date.now();
 
+// --- DOM Elements ---
 const fileInput=document.getElementById('gpxfile');
 const gpxBtn=document.getElementById('gpxBtn');
 const weightInput=document.getElementById('weight');
@@ -150,11 +77,14 @@ const elevCanvas=document.getElementById('elevChart');
 const elevCtx=elevCanvas.getContext('2d');
 const modalOverlay=document.getElementById('modalOverlay');
 
+// --- Elevation Chart ---
 function drawElevationChart(){
   elevCanvas.width=window.innerWidth;
   elevCanvas.height=window.innerHeight*0.15;
   elevCtx.clearRect(0,0,elevCanvas.width,elevCanvas.height);
   if(!elevations.length) return;
+  elevCtx.fillStyle='#888';
+  elevCtx.fillRect(0,0,elevCanvas.width,elevCanvas.height);
   elevCtx.strokeStyle='blue';
   elevCtx.lineWidth=2;
   elevCtx.beginPath();
@@ -166,7 +96,6 @@ function drawElevationChart(){
   }
   elevCtx.stroke();
 }
-
 function updateElevationCursor(idx){
   drawElevationChart();
   if(!coords.length) return;
@@ -179,9 +108,8 @@ function updateElevationCursor(idx){
   elevCtx.stroke();
 }
 
-// ---- Pflichtfelder nacheinander ----
+// --- Modal Flow ---
 gpxBtn.addEventListener('click',()=>{ fileInput.click(); });
-
 fileInput.addEventListener('change', e=>{
   const file=e.target.files[0]; if(!file) return;
   const reader=new FileReader();
@@ -194,15 +122,12 @@ fileInput.addEventListener('change', e=>{
       coords=feat.geometry.coordinates.map(c=>[c[1],c[0]]);
       elevations=feat.geometry.coordinates.map(c=>c[2]||0);
       totalGain=0; i=0; distance_m=0; seconds=0;
-
       if(routeLine) map.removeLayer(routeLine);
       routeLine=L.polyline(coords,{color:'#00aaff', weight:4}).addTo(map);
       if(marker) map.removeLayer(marker);
       marker=L.marker(coords[0]).addTo(map);
-
       map.fitBounds(routeLine.getBounds());
       drawElevationChart();
-
       weightInput.style.display='inline-block';
     }catch(err){console.error(err); alert("Fehler beim Laden der GPX-Datei.");}
   };
@@ -210,85 +135,90 @@ fileInput.addEventListener('change', e=>{
 });
 
 weightInput.addEventListener('input',()=>{
-  if(weightInput.value>0){ 
-    weight=parseFloat(weightInput.value); 
-    connectBtn.style.display='inline-block'; 
-  }
+  if(weightInput.value>0){ weight=parseFloat(weightInput.value); connectBtn.style.display='inline-block'; }
 });
 
-connectBtn.addEventListener('click',()=>{
+// --- Kickr Live Verbindung ---
+connectBtn.addEventListener('click', async ()=>{
   if(!navigator.bluetooth){alert("Web Bluetooth nicht verfügbar!"); return;}
-  navigator.bluetooth.requestDevice({
-    filters:[{namePrefix:"KICKR"}],
-    optionalServices:[0x1826,0x2a63]
-  }).then(device=>{
+  try{
+    const device = await navigator.bluetooth.requestDevice({
+      filters:[{namePrefix:"KICKR"}],
+      optionalServices:[0x1826,0x2a63]
+    });
+    const server=await device.gatt.connect();
     kickrConnected=true;
-    connectBtn.classList.add("connected");
     connectBtn.textContent="KICKR verbunden";
-    modalOverlay.style.display='none'; // Modal ausblenden, Fahrt startet
-  }).catch(err=>{console.error(err); alert("Kickr Verbindung fehlgeschlagen.");});
+    modalOverlay.style.display='none';
+
+    const cadenceService=await server.getPrimaryService('00001816-0000-1000-8000-00805f9b34fb'); 
+    const cadenceChar=await cadenceService.getCharacteristic('00002a5b-0000-1000-8000-00805f9b34fb');
+    await cadenceChar.startNotifications();
+    cadenceChar.addEventListener('characteristicvaluechanged', e=>{
+      const val=e.target.value.getUint16(0,true);
+      currentCadence=val;
+      updateTopBar();
+      updateMarkerByCadence(val);
+    });
+
+    setInterval(()=>{
+      if(currentCadence<5 && !paused && kickrConnected){
+        paused=true;
+        const confirmEnd=confirm("Fahrt unterbrochen. Beenden?");
+        if(confirmEnd){showSummary();}
+        else paused=false;
+      }
+    },10000);
+
+  }catch(err){console.error(err); alert("Kickr Verbindung fehlgeschlagen.");}
 });
 
-function updateTopBar(){
-  document.getElementById('dist').textContent=(distance_m/1000).toFixed(2);
-  document.getElementById('hm').textContent=Math.round(totalGain);
-  document.getElementById('cadence').textContent=Math.round(currentCadence);
-  document.getElementById('power').textContent=Math.round(currentWatt);
+// --- Marker/Map ---
+function updateMarkerByCadence(cad){
+  if(!coords.length || i>=coords.length) return;
+  marker.setLatLng(coords[i]);
+  if(follow) map.setView(coords[i], map.getZoom(), {animate:true, duration:0.2});
+  const h1=elevations[i], h2=elevations[i+1]||h1;
+  distance_m+=1; 
+  const slope=(h2-h1)/1*100; 
+  totalGain+=Math.max(0,h2-h1);
+  currentWatt=(weight*9.81*cad*(slope/100))||0;
+  updateElevationCursor(i);
+  updateTopBar();
+  i++;
+  seconds=Math.floor((Date.now()-lastTime)/1000);
 }
 
+// --- Popup Summary ---
+function showSummary(){
+  popupSummary.style.display='block';
+  popupSummary.innerHTML=`
+    <h3>Fahrzusammenfassung</h3>
+    <p>Distanz: ${(distance_m/1000).toFixed(2)} km</p>
+    <p>Zeit: ${Math.floor(seconds/60)}:${seconds%60}</p>
+    <p>Höhenmeter: ${Math.round(totalGain)}</p>
+    <p>Watt: ${Math.round(currentWatt)}</p>
+    <p>Kadenz: ${Math.round(currentCadence)}</p>
+    <button onclick="popupSummary.style.display='none';">Schließen</button>
+  `;
+}
+
+// --- Fullscreen ---
 document.getElementById('fullscreenBtn').addEventListener('click',()=>{
   const el=document.documentElement;
   if(!document.fullscreenElement) el.requestFullscreen();
   else document.exitFullscreen();
 });
+document.addEventListener('fullscreenchange', () => { setTimeout(()=>map.invalidateSize(),100); });
 
-function rpmCheck(){
-  if(currentCadence<5){
-    if(rpmTimeout) clearTimeout(rpmTimeout);
-    rpmTimeout=setTimeout(()=>{
-      paused=true;
-      const cont=confirm("Pause erkannt! Möchten Sie beenden?");
-      if(cont){showSummary();}else{paused=false;}
-    },10000);
-  }
+// --- Infobar Update ---
+function updateTopBar(){
+  document.getElementById('dist').textContent=(distance_m/1000).toFixed(2);
+  document.getElementById('hm').textContent=Math.round(totalGain);
+  document.getElementById('cadence').textContent=Math.round(currentCadence);
+  document.getElementById('power').textContent=Math.round(currentWatt);
+  document.getElementById('time').textContent=`${Math.floor(seconds/60)}:${seconds%60}`;
 }
-
-function showSummary(){
-  paused=true;
-  popupSummary.style.display='block';
-  popupSummary.innerHTML=`<h2>Zusammenfassung</h2>
-  Distanz: ${(distance_m/1000).toFixed(2)} km<br>
-  Dauer: ${Math.floor(seconds/60)}:${seconds%60} min<br>
-  HM: ${Math.round(totalGain)}<br>
-  Watt: ${Math.round(currentWatt)}<br>
-  Kadenz: ${Math.round(currentCadence)}<br>
-  <button onclick="popupSummary.style.display='none';paused=false;">Schließen</button>`;
-}
-
-function haversine(lat1,lon1,lat2,lon2){
-  const R=6371000,toRad=d=>d*Math.PI/180;
-  const dLat=toRad(lat2-lat1), dLon=toRad(lon2-lon1);
-  const a=Math.sin(dLat/2)**2+Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
-  return 2*R*Math.asin(Math.sqrt(a));
-}
-
-function moveMarkerLive(){
-  if(!kickrConnected || !coords.length || paused) return;
-  if(currentCadence>5){
-    const prev=coords[i], curr=coords[i+1]||coords[i];
-    const dist=haversine(prev[0],prev[1],curr[0],curr[1]);
-    distance_m+=dist;
-    const h1=elevations[i], h2=elevations[i+1]||h1;
-    if(h2>h1) totalGain+=(h2-h1);
-    marker.setLatLng(curr);
-    if(follow) map.setView(curr);
-    i=Math.min(i+1,coords.length-1);
-    updateElevationCursor(i);
-    updateTopBar();
-  }
-}
-
-window.addEventListener('resize',()=>{map.invalidateSize(); drawElevationChart();});
 </script>
 </body>
 </html>
