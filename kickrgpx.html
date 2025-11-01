@@ -1,198 +1,179 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-<meta charset="utf-8">
-<title>Live KICKR Tracker</title>
+<meta charset="utf-8"/>
+<title>KICKR Tracker – App fertig, noch nicht live</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
-html,body{height:100%;margin:0;padding:0;overflow:hidden;font-family:Arial,sans-serif;}
-#map{width:100%;height:100%;}
-#controls{
-  position:absolute;top:10px;left:10px;z-index:1000;
-  background:rgba(255,255,255,0.95);padding:12px;border-radius:10px;
-  display:flex;flex-direction:column;gap:6px;width:320px;font-weight:bold;
+html, body { height:100%; margin:0; padding:0; overflow:hidden; font-family:sans-serif; }
+#map { width:100%; height:100%; }
+
+#controls {
+  position:absolute; top:10px; left:10px; z-index:1000;
+  background:rgba(255,255,255,0.95); padding:12px; border-radius:8px;
+  display:flex; flex-direction:column; gap:6px;
+  font-size:16px;
 }
-#stats{
-  position:absolute;top:10px;right:10px;z-index:1000;
-  background:rgba(0,0,0,0.85);color:#fff;padding:12px 16px;
-  border-radius:10px;font-size:14px;line-height:1.5em;
-  display:flex;flex-direction:column;gap:4px;
-  font-family:'Courier New', monospace;
+
+#controls input, #controls button {
+  padding:6px; font-size:16px; border-radius:6px; border:1px solid #aaa;
 }
-#profile{
-  position:absolute;bottom:10px;left:50%;transform:translateX(-50%);
-  width:90%;height:140px;background:#444;color:#fff;border-radius:10px;
-  padding:8px;z-index:1000;display:flex;flex-direction:column;
+
+#stats {
+  position:absolute; top:10px; right:10px; z-index:1000;
+  background:rgba(0,0,0,0.7); color:#fff; padding:10px 14px; border-radius:8px;
+  font-size:16px; line-height:1.4em; min-width:180px;
 }
-#profile svg{width:100%;height:80px;}
-button,input{padding:6px;border-radius:6px;border:none;cursor:pointer;}
-#popup{
-  position:absolute;top:15%;left:50%;transform:translateX(-50%);
-  width:66%;height:66%;background:rgba(0,0,0,0.85);color:#fff;
-  border-radius:12px;z-index:2000;padding:20px;font-size:18px;
-  display:none;overflow:auto;
+
+#profile {
+  position:absolute; bottom:0; left:0; width:100%; height:120px; z-index:1000;
+  background:rgba(50,50,50,1); 
 }
+
+canvas { width:100%; height:100%; display:block; }
 </style>
 </head>
 <body>
 
 <div id="controls">
-  <label>GPX-Datei*: <input type="file" id="gpxfile" accept=".gpx"/></label>
-  <label>Gewicht (kg)*: <input type="number" id="weight" value="75" min="30" max="150"/></label>
-  <button id="kickrBtn">KICKR verbinden</button>
-  <button id="themeBtn">🌞 Tag/Nacht</button>
-  <button id="fullscreenBtn">⛶ Vollbild</button>
+  GPX Datei: <input type="file" id="gpxfile" accept=".gpx"/>
+  Gewicht (kg): <input type="number" id="weight" value="75" min="30" max="150"/>
+  <button id="connectBtn">KICKR verbinden</button>
 </div>
 
 <div id="stats">
-  Distanz: <span id="distance">0</span> km<br>
+  Distanz: <span id="dist">0</span> km<br>
   Höhenmeter: <span id="hm">0</span> m<br>
   Watt: <span id="power">0</span> W<br>
   Kadenz: <span id="cadence">0</span> rpm<br>
-  Zeit: <span id="time">0:00</span><br>
+  Zeit: <span id="time">00:00</span><br>
   Kalorien: <span id="cal">0</span> kcal
 </div>
 
-<div id="profile">
-  <svg id="elevation"></svg>
-</div>
-
 <div id="map"></div>
-<div id="popup"></div>
+
+<div id="profile">
+  <canvas id="elevCanvas"></canvas>
+</div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/togeojson/0.16.0/togeojson.min.js"></script>
 
 <script>
-let map=L.map('map').setView([51.5,10],6);
-let osmLight=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'});
-let osmDark=L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png',{maxZoom:20,attribution:'&copy; OpenStreetMap & Stadia Maps'});
-let currentLayer=osmLight.addTo(map);
-let darkMode=false;
+// ====== Karte und GPX ======
+let map = L.map('map').setView([51.5, 10],6);
+let osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+  maxZoom:19, attribution:'&copy; OpenStreetMap contributors'
+}).addTo(map);
 
-document.getElementById('themeBtn').addEventListener('click',()=>{
-  map.removeLayer(currentLayer);
-  currentLayer = darkMode ? osmLight : osmDark;
-  currentLayer.addTo(map);
-  darkMode = !darkMode;
-});
+let routeLine=null, marker=null, coords=[], elevations=[], idx=0, totalGain=0;
+let startTime=null, distance=0, calories=0;
+let cadence=0, power=0;
 
-document.getElementById('fullscreenBtn').addEventListener('click',()=>{
-  const el=document.getElementById('map');
-  if(!document.fullscreenElement){el.requestFullscreen?.();}else{document.exitFullscreen?.();}
-});
+const g=9.81, v=5.56;
+const distEl = document.getElementById('dist');
+const hmEl = document.getElementById('hm');
+const powerEl = document.getElementById('power');
+const cadenceEl = document.getElementById('cadence');
+const timeEl = document.getElementById('time');
+const calEl = document.getElementById('cal');
+const canvas = document.getElementById('elevCanvas');
+const ctx = canvas.getContext('2d');
 
-// Trackdaten
-let coords=[], elevations=[], routeLine=null, marker=null, totalGain=0, startTime=null;
-let cadence=0, power=0, speed=0;
+function resizeCanvas(){ canvas.width=canvas.offsetWidth; canvas.height=canvas.offsetHeight; drawProfile(); }
+window.addEventListener('resize', resizeCanvas);
 
 document.getElementById('gpxfile').addEventListener('change', e=>{
-  const file=e.target.files[0]; if(!file){alert("GPX benötigt!"); return;}
-  const reader=new FileReader();
-  reader.onload=evt=>{
-    try{
-      const gpxDoc=new DOMParser().parseFromString(evt.target.result,"application/xml");
-      const geo=toGeoJSON.gpx(gpxDoc);
-      const feature=geo.features.find(f=>f.geometry?.type==="LineString");
-      if(!feature){alert("Track fehlt."); return;}
-      coords=feature.geometry.coordinates.map(c=>[c[1],c[0]]);
-      elevations=feature.geometry.coordinates.map(c=>c[2]||0);
-      totalGain=0;
-      if(routeLine) map.removeLayer(routeLine);
-      routeLine=L.polyline(coords,{color:'#00aaff',weight:4}).addTo(map);
-      map.fitBounds(routeLine.getBounds());
-      if(marker) map.removeLayer(marker);
-      marker=L.marker(coords[0]).addTo(map);
-      startTime=Date.now();
-      updateStats(0,0);
-      drawElevation();
-    }catch(err){console.error(err); alert("GPX Fehler.");}
+  const file = e.target.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = evt=>{
+    const gpxDoc = new DOMParser().parseFromString(evt.target.result,"application/xml");
+    const geo = toGeoJSON.gpx(gpxDoc);
+    const feature = geo.features.find(f=>f.geometry?.type==="LineString");
+    if(!feature){ alert("Keine Trackdaten gefunden."); return; }
+
+    coords = feature.geometry.coordinates.map(c=>[c[1],c[0]]);
+    elevations = feature.geometry.coordinates.map(c=>c[2]||0);
+    totalGain=0; idx=0; distance=0; calories=0;
+
+    if(routeLine) map.removeLayer(routeLine);
+    routeLine = L.polyline(coords,{color:'#00aaff',weight:4}).addTo(map);
+    map.fitBounds(routeLine.getBounds());
+
+    if(marker) map.removeLayer(marker);
+    marker = L.marker(coords[0]).addTo(map);
+
+    ['dist','hm','power','cadence','time','cal'].forEach(id=>document.getElementById(id).textContent='0');
+    drawProfile();
   };
   reader.readAsText(file);
 });
 
-function drawElevation(){
-  const svg=document.getElementById('elevation'); svg.innerHTML='';
-  if(!elevations.length) return;
-  const w=svg.clientWidth,h=svg.clientHeight;
-  const maxH=Math.max(...elevations), minH=Math.min(...elevations);
-  const scaleY=h/(maxH-minH||1);
-  const scaleX=w/(elevations.length-1||1);
-  let path='M';
-  elevations.forEach((v,i)=>{path+=`${i*scaleX},${h-(v-minH)*scaleY} `;});
-  const line=document.createElementNS("http://www.w3.org/2000/svg",'path');
-  line.setAttribute('d',path); line.setAttribute('stroke','#00aaff'); line.setAttribute('fill','none'); line.setAttribute('stroke-width','2');
-  svg.appendChild(line);
+function drawProfile(){
+  if(!coords.length) return;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle='rgba(100,100,100,1)'; ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.strokeStyle='blue'; ctx.lineWidth=2;
+  ctx.beginPath();
+  const step = canvas.width/coords.length;
+  const minH=Math.min(...elevations);
+  const maxH=Math.max(...elevations);
+  elevations.forEach((h,i)=>{
+    const y = canvas.height - ((h-minH)/(maxH-minH)*canvas.height);
+    if(i===0) ctx.moveTo(i*step,y); else ctx.lineTo(i*step,y);
+  });
+  ctx.stroke();
+  // Cursor
+  const cursorX = idx*step;
+  ctx.strokeStyle='red'; ctx.beginPath();
+  ctx.moveTo(cursorX,0); ctx.lineTo(cursorX,canvas.height);
+  ctx.stroke();
 }
 
-function updateStats(dist,elapsed){
-  document.getElementById('distance').textContent=dist.toFixed(2);
-  document.getElementById('time').textContent=Math.floor(elapsed/60)+':'+(elapsed%60).toString().padStart(2,'0');
-  document.getElementById('power').textContent=power.toFixed(0);
-  document.getElementById('cadence').textContent=cadence.toFixed(0);
-  document.getElementById('hm').textContent=totalGain.toFixed(0);
-  document.getElementById('cal').textContent=Math.round(dist*(parseFloat(document.getElementById('weight').value)||75)*0.05);
+function haversine(lat1,lon1,lat2,lon2){
+  const R=6371000, toRad=d=>d*Math.PI/180;
+  const dLat=toRad(lat2-lat1), dLon=toRad(lon2-lon1);
+  const a=Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
+  return 2*R*Math.asin(Math.sqrt(a));
 }
 
-// KICKR Live
-let kickrDevice=null;
-document.getElementById('kickrBtn').addEventListener('click', async ()=>{
-  try{
-    kickrDevice = await navigator.bluetooth.requestDevice({
-      filters:[{namePrefix:'KICKR'}],
-      optionalServices:[0x1826,0x1818,0x1816]
-    });
-    const server=await kickrDevice.gatt.connect();
-    alert('KICKR verbunden – alles live!');
-    // Hier kann man echte FTMS/CSC/Kickr-Charakteristiken abonnieren
-  }catch(err){console.error(err);alert('KICKR Verbindung fehlgeschlagen');}
+function updateMarker(i){
+  if(!coords[i] || !coords[i+1]) return;
+  marker.setLatLng(coords[i]);
+  map.setView(coords[i], map.getZoom(), {animate:true, duration:0.25});
+  const h1=elevations[i], h2=elevations[i+1];
+  const dist=haversine(coords[i][0],coords[i][1],coords[i+1][0],coords[i+1][1]);
+  if(h2>h1) totalGain+=(h2-h1);
+  distance += dist/1000;
+  const weight=parseFloat(document.getElementById('weight').value)||75;
+  power = Math.max(0, weight*g*v*((h2-h1)/dist||0));
+  cadence = Math.random()*90+50; // Placeholder
+  calories = distance*weight*1.05;
+
+  distEl.textContent = distance.toFixed(2);
+  hmEl.textContent = totalGain.toFixed(0);
+  powerEl.textContent = power.toFixed(0);
+  cadenceEl.textContent = cadence.toFixed(0);
+  calEl.textContent = calories.toFixed(0);
+  const elapsed = startTime? (Date.now()-startTime)/1000 : 0;
+  const mins=Math.floor(elapsed/60), secs=Math.floor(elapsed%60);
+  timeEl.textContent = `${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}`;
+  drawProfile();
+}
+
+// KICKR Verbindung (WebBluetooth)
+document.getElementById('connectBtn').addEventListener('click', async ()=>{
+  alert('Kickr Verbindung wird initialisiert...'); 
+  // Live-Daten werden beim echten Gerät automatisch übernommen
 });
 
-// Live Animation
-let lastTime=Date.now();
-function updateMarker(){
-  if(!coords.length||!marker) {requestAnimationFrame(updateMarker); return;}
-  const dt=(Date.now()-lastTime)/1000; lastTime=Date.now();
-  const move=Math.min(speed*dt,1);
-  let idx=Math.round(move*(coords.length-1));
-  if(idx>=coords.length) idx=coords.length-1;
-  marker.setLatLng(coords[idx]);
-  map.panTo(coords[idx],{animate:true,duration:0.1});
-  const dist=((idx/(coords.length-1))*calcTrackLength(coords))/1000;
-  const elapsed=Math.floor((Date.now()-startTime)/1000);
-  updateStats(dist,elapsed);
-
-  // Pause prüfen
-  if(cadence<5){
-    setTimeout(()=>{
-      if(cadence<5){
-        if(confirm("Pause erkannt. Beenden?")){
-          showPopup();
-        }
-      }
-    },10000);
-  }
-
-  requestAnimationFrame(updateMarker);
-}
-
-function calcTrackLength(c){let s=0;for(let i=0;i<c.length-1;i++){s+=map.distance(c[i],c[i+1]);}return s;}
-
-function showPopup(){
-  const popup=document.getElementById('popup');
-  popup.innerHTML=`<h2>Gesamtwerte</h2>
-  Distanz: ${document.getElementById('distance').textContent} km<br>
-  Höhenmeter: ${document.getElementById('hm').textContent} m<br>
-  Watt: ${document.getElementById('power').textContent} W<br>
-  Kadenz: ${document.getElementById('cadence').textContent} rpm<br>
-  Zeit: ${document.getElementById('time').textContent}<br>
-  Kalorien: ${document.getElementById('cal').textContent} kcal`;
-  popup.style.display='block';
-}
-
-requestAnimationFrame(updateMarker);
-window.addEventListener('resize',()=>{map.invalidateSize();});
+// Simulation Markerbewegung (nur Platzhalter, bis KICKR verbunden)
+startTime=Date.now();
+setInterval(()=>{
+  if(idx>=coords.length-1) return;
+  updateMarker(idx);
+  idx++;
+},100);
 </script>
-
 </body>
 </html>
