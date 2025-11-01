@@ -3,59 +3,39 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Kickr Live Tracker — GitHub Pages ready</title>
+<title>Kickr Live Tracker</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
   :root{
-    --accent1:#4facfe;
-    --accent2:#00c3ff;
-    --panel-bg:#ffffff;
-    --text:#0b1220;
+    --accent1:#4facfe; --accent2:#00c3ff; --panel-bg:#ffffff; --text:#0b1220;
   }
-  html,body{height:100%;margin:0;background:#f6f9fc;color:var(--text);font-family:Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial;}
-  /* Map full */
+  html,body{height:100%;margin:0;background:#f6f9fc;color:var(--text);font-family:Inter,Arial,Helvetica,sans-serif;}
   #map{position:fixed;inset:0;z-index:1;}
-  /* Large modal (2/3 height) centered */
+  /* Start panel ~ 2/3 height */
   #startPanel{
     position:fixed; left:50%; top:50%; transform:translate(-50%,-50%);
-    width:min(920px,94vw); height:66vh; background:var(--panel-bg); border-radius:14px;
-    box-shadow: 0 18px 50px rgba(10,20,40,0.18); z-index:4000; display:flex; gap:18px; overflow:hidden;
+    width:min(920px,94vw); height:66vh; background:var(--panel-bg); border-radius:12px;
+    box-shadow:0 18px 50px rgba(10,20,40,0.12); z-index:4000; display:flex; gap:12px; overflow:hidden;
   }
-  .left, .right {padding:20px; box-sizing:border-box;}
-  .left{width:56%; border-right:1px solid #eef3f8;}
-  .right{width:44%; display:flex;flex-direction:column;gap:10px; align-items:flex-start;}
-  h1{margin:0 0 6px 0;font-size:20px;color:var(--text);}
-  p.small{margin:0;color:#445; font-size:13px;}
-  label{display:block;margin-top:12px;font-weight:600;font-size:13px;color:#123;}
+  .left,.right{padding:18px;box-sizing:border-box;}
+  .left{width:58%; border-right:1px solid #eef3f8;}
+  .right{width:42%; display:flex;flex-direction:column;gap:10px;align-items:stretch;}
+  h1{margin:0;font-size:18px;font-weight:700;}
   input[type=file]{display:none;}
-  input[type=number], button, .btn{
-    width:100%; padding:10px 12px; border-radius:8px;border:1px solid #dbe9f8; font-size:15px;
-    background:white;color:var(--text);
-  }
-  .btn.accent{background:linear-gradient(90deg,var(--accent1),var(--accent2));border:none;color:white;font-weight:700;box-shadow:0 8px 18px rgba(75,145,255,0.18);}
-  .muted{background:#f4f7fb;border:1px solid #e6eef9;}
-  .inline-row{display:flex;gap:10px;width:100%;}
-  .inline-row > *{flex:1;}
-  /* Infobar top */
+  input[type=number], button{width:100%;padding:10px 12px;border-radius:10px;border:1px solid #e6eef9;font-size:15px;background:#fff}
+  .btn-accent{background:linear-gradient(90deg,var(--accent1),var(--accent2));border:none;color:#fff;font-weight:700;box-shadow:0 8px 18px rgba(75,145,255,0.14);}
+  .btn-muted{background:#f4f7fb;border:1px solid #e6eef9;}
   #infobar{
-    position:fixed; top:12px; left:12px; right:12px; z-index:3000;
-    background:linear-gradient(135deg,var(--accent1),var(--accent2));
-    color:white; padding:12px 16px; border-radius:12px; box-shadow:0 8px 24px rgba(30,60,120,0.15);
-    font-weight:700; display:flex;flex-direction:column; gap:6px;
+    position:fixed;top:12px;left:12px;right:12px;z-index:3000;background:linear-gradient(135deg,var(--accent1),var(--accent2));
+    color:#fff;padding:12px 16px;border-radius:10px;box-shadow:0 10px 28px rgba(20,40,90,0.12);font-weight:700;
+    display:flex;flex-direction:column;gap:6px;font-size:14px;
   }
   #infobar .row{display:flex;justify-content:space-between;align-items:center;}
-  #infobar .row .left{display:flex;gap:18px;align-items:center;}
-  .small-val{font-weight:600;}
-  /* Elevation chart */
-  #elevChart{position:fixed;bottom:0;left:0;width:100%;height:16vh;background:#dcdfe6;z-index:2500;border-top:2px solid rgba(0,0,0,0.06);}
-  /* popup */
-  #popupSummary{position:fixed;left:50%;top:14%;transform:translateX(-50%);width:68%;max-width:1100px;z-index:5000;display:none;border-radius:12px;overflow:hidden;background:linear-gradient(180deg,rgba(255,255,255,0.98),#ffffff);box-shadow:0 30px 60px rgba(10,20,40,0.25);}
-  #popupSummary .content{padding:28px;}
-  /* debug area */
-  #debug{font-size:12px;color:#234; background:#fff; padding:10px;border-radius:8px;border:1px solid #e6eef9; width:100%; max-height:30vh; overflow:auto;}
-  /* responsive */
+  #elevChart{position:fixed;bottom:0;left:0;width:100%;height:15vh;background:#dcdfe6;z-index:2500;border-top:2px solid rgba(0,0,0,0.06)}
+  #popupSummary{position:fixed;left:50%;top:14%;transform:translateX(-50%);width:68%;max-width:1100px;z-index:5000;display:none;border-radius:10px;background:#fff;box-shadow:0 30px 60px rgba(0,0,0,0.18);overflow:hidden}
+  #popupSummary .content{padding:22px;}
   @media (max-width:900px){
-    #startPanel{flex-direction:column;width:94vw;height:76vh;}
+    #startPanel{flex-direction:column;height:76vh;width:94vw;}
     .left,.right{width:100%;border-right:none;}
     #infobar{left:8px;right:8px;}
   }
@@ -63,190 +43,105 @@
 </head>
 <body>
 
-<!-- Map -->
 <div id="map"></div>
 
-<!-- Infobar top -->
 <div id="infobar" aria-live="polite">
   <div class="row">
-    <div class="left">
-      <div>Distanz: <span id="dist" class="small-val">0.00 km</span></div>
-      <div>Zeit: <span id="time" class="small-val">00:00</span></div>
-      <div>HM: <span id="hm" class="small-val">0</span></div>
+    <div style="display:flex;gap:18px;align-items:center">
+      <div>Distanz: <span id="dist">0.00 km</span></div>
+      <div>Zeit: <span id="time">00:00</span></div>
+      <div>HM: <span id="hm">0</span></div>
     </div>
-    <div class="right" style="display:flex;gap:10px;align-items:center;">
-      <div>Watt: <span id="power" class="small-val">0</span></div>
-      <div>Kadenz: <span id="cadence" class="small-val">0</span></div>
-      <div>Steigung: <span id="slope" class="small-val">0%</span></div>
-      <button id="fullscreenBtn" class="btn muted" style="width:auto;padding:8px 10px;">⛶</button>
+    <div style="display:flex;gap:14px;align-items:center">
+      <div>Watt: <span id="power">0</span></div>
+      <div>Kadenz: <span id="cadence">0</span></div>
+      <div>Steigung: <span id="slope">0%</span></div>
+      <button id="fullscreenBtn" class="btn-muted" style="padding:8px 10px">⛶</button>
     </div>
   </div>
 </div>
 
-<!-- Elevation canvas -->
 <canvas id="elevChart"></canvas>
 
-<!-- Start modal (2/3 height) -->
 <div id="startPanel" role="dialog" aria-modal="true">
   <div class="left">
-    <h1>Kickr Live Tracker — Start</h1>
-    <p class="small">Bitte lade zuerst die GPX-Strecke und gib dein Fahrergewicht ein. Danach KICKR verbinden. Die Seite überprüft automatisch, ob Web Bluetooth über HTTPS verfügbar ist.</p>
+    <h1>Start</h1>
+    <div style="margin-top:10px;font-size:14px;color:#334">GPX laden → Gewicht eingeben → KICKR verbinden</div>
 
-    <label for="gpxfile">GPX Datei</label>
-    <div style="display:flex;gap:10px;">
-      <button id="gpxBtn" class="btn muted" type="button">📁 Datei auswählen</button>
-      <input id="gpxfile" type="file" accept=".gpx">
+    <label style="margin-top:16px;font-weight:700;font-size:13px">GPX Datei</label>
+    <div style="display:flex;gap:10px;margin-top:8px">
+      <button id="gpxBtn" class="btn-muted" type="button">📁 auswählen</button>
+      <div style="flex:1"><span id="gpxName" style="color:#445;font-size:13px">keine Datei</span></div>
     </div>
-    <div id="gpxName" style="margin-top:8px;color:#345;font-size:13px;">Keine Datei gewählt</div>
+    <input id="gpxfile" type="file" accept=".gpx">
 
-    <label for="weight">Fahrergewicht (kg)</label>
+    <label style="margin-top:14px;font-weight:700;font-size:13px">Gewicht (kg)</label>
     <input id="weightInput" type="number" min="30" max="200" placeholder="z.B. 75">
 
-    <div style="margin-top:12px;">
-      <button id="connectBtn" class="btn accent" disabled>🔌 KICKR verbinden (verfügbar nach GPX & Gewicht)</button>
-    </div>
-
-    <div style="margin-top:14px;">
-      <strong>Verbindungsstatus:</strong>
-      <div id="status" style="margin-top:6px;color:#234;font-size:13px;">Warte auf Eingabe...</div>
+    <div style="margin-top:18px">
+      <button id="connectBtn" class="btn-accent" disabled>🔌 KICKR verbinden</button>
     </div>
   </div>
 
   <div class="right">
-    <h2 style="margin-top:0">Hinweise & Debug</h2>
-    <p class="small">HTTPS erforderlich für Web Bluetooth. Öffne die Seite mit Chrome/Edge über die GitHub Pages URL.</p>
-
-    <div id="debug" aria-live="polite">
-      <div><strong>HTTPS-Status:</strong> <span id="httpsStatus">—</span></div>
-      <div style="margin-top:8px;"><strong>Gefundene Geräte / Logs:</strong></div>
-      <div id="logArea" style="margin-top:6px;font-size:12px;"></div>
-    </div>
-
-    <div style="margin-top:auto;width:100%;">
-      <button id="startAnyway" class="btn muted" style="margin-top:12px;width:100%;">Startseite minimieren (nur UI testen)</button>
+    <div style="margin-top:6px;font-weight:600">Status</div>
+    <div id="status" style="background:#f4f7fb;padding:10px;border-radius:8px;border:1px solid #e6eef9">warte</div>
+    <div style="flex:1"></div>
+    <div style="display:flex;gap:10px">
+      <button id="startHide" class="btn-muted">Minimieren (UI testen)</button>
     </div>
   </div>
 </div>
 
-<!-- Summary popup -->
-<div id="popupSummary" role="alertdialog" aria-modal="true">
+<div id="popupSummary" role="dialog" aria-modal="true">
   <div class="content" id="summaryContent"></div>
 </div>
 
-<!-- Leaflet + togeojson already available via CDN -->
+<!-- libs -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/togeojson/0.16.0/togeojson.min.js"></script>
 
 <script>
-/* ================ Utilities & Map ================ */
-const map = L.map('map', { zoomControl: true }).setView([51.5, 10], 7);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19, attribution:'© OpenStreetMap'}).addTo(map);
+/* Map */
+const map = L.map('map').setView([51.5,10],7);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
 
-function log(msg){
-  const el=document.getElementById('logArea');
-  const p=document.createElement('div');
-  p.textContent = (new Date()).toLocaleTimeString() + ' — ' + msg;
-  el.prepend(p);
-}
+/* State */
+let coords=[], elevations=[], routeLine=null, marker=null;
+let indexPos=0, distance_m=0, totalGain=0, seconds=0;
+let weight=75;
+let kickrConnected=false;
+let currentCadence=0, currentWatt=0;
+let lastCrank={rev:null,time:null,ts:null};
+let lastMarkerTime=Date.now();
+let pauseTimer=null;
 
-/* ================ State ================ */
-let coords = [], elevations = [], routeLine = null, marker = null;
-let indexPos = 0, totalGain = 0, distance_m = 0, seconds = 0;
-let weight = 75;
-let kickrConnected = false;
-let currentCadence = 0, currentWatt = 0;
-let follow = true;
-let lastUpdate = Date.now();
-let lastMarkerTime = Date.now();
-let cadenceActive = false;
+/* Elements */
+const gpxBtn=document.getElementById('gpxBtn');
+const gpxFile=document.getElementById('gpxfile');
+const gpxName=document.getElementById('gpxName');
+const weightInput=document.getElementById('weightInput');
+const connectBtn=document.getElementById('connectBtn');
+const status=document.getElementById('status');
+const startPanel=document.getElementById('startPanel');
+const startHide=document.getElementById('startHide');
+const popupSummary=document.getElementById('popupSummary');
+const summaryContent=document.getElementById('summaryContent');
 
-/* ================ Elements ================ */
-const gpxBtn = document.getElementById('gpxBtn');
-const gpxFile = document.getElementById('gpxfile');
-const gpxName = document.getElementById('gpxName');
-const weightInput = document.getElementById('weightInput');
-const connectBtn = document.getElementById('connectBtn');
-const status = document.getElementById('status');
-const httpsStatus = document.getElementById('httpsStatus');
-const startPanel = document.getElementById('startPanel');
-const startAnyway = document.getElementById('startAnyway');
-const popupSummary = document.getElementById('popupSummary');
-const summaryContent = document.getElementById('summaryContent');
-
-/* ================ HTTPS check ================ */
-function checkHTTPS(){
-  const ok = location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-  httpsStatus.textContent = ok ? 'OK (HTTPS / localhost)' : 'NICHT SICHER (keine HTTPS) — Bluetooth gesperrt';
-  log('HTTPS check: ' + (ok ? 'ok' : 'blocked'));
-  return ok;
-}
-checkHTTPS();
-
-/* ================ GPX Loading ================ */
-gpxBtn.addEventListener('click', ()=> gpxFile.click());
-gpxFile.addEventListener('change', async (e)=>{
-  const file = e.target.files[0];
-  if(!file) return;
-  gpxName.textContent = file.name;
-  log('GPX Datei gewählt: ' + file.name);
-  const text = await file.text();
-  try{
-    const xml = (new DOMParser()).parseFromString(text, 'application/xml');
-    const geo = toGeoJSON.gpx(xml);
-    const feature = geo.features.find(f => f.geometry && f.geometry.type === 'LineString');
-    if(!feature) { alert('Keine Trackdaten in GPX gefunden.'); return; }
-    coords = feature.geometry.coordinates.map(c => [c[1], c[0]]);
-    elevations = feature.geometry.coordinates.map(c => (c[2] !== undefined ? c[2] : 0));
-    // clear old
-    if(routeLine) map.removeLayer(routeLine);
-    if(marker) map.removeLayer(marker);
-    routeLine = L.polyline(coords, { color:'#1e90ff', weight:4 }).addTo(map);
-    marker = L.marker(coords[0], { title:'Du' }).addTo(map);
-    map.fitBounds(routeLine.getBounds(), { padding:[40,40] });
-    indexPos = 0; totalGain = 0; distance_m = 0; seconds = 0;
-    drawElevationChart();
-    status.textContent = 'GPX geladen — wähle Gewicht';
-    weightInput.focus();
-    // enable weight
-    weightInput.disabled = false;
-  }catch(err){
-    console.error(err);
-    alert('Fehler beim Parsen der GPX-Datei.');
-  }
-});
-
-/* ================ Weight -> enable connect ================ */
-weightInput.addEventListener('input', ()=>{
-  const v = parseFloat(weightInput.value);
-  if(!isNaN(v) && v>30){
-    weight = v;
-    connectBtn.disabled = false;
-    connectBtn.classList.add('accent');
-    status.textContent = 'Gewicht gesetzt — KICKR verbinden möglich';
-    log('Gewicht gesetzt: ' + weight + ' kg');
-  } else {
-    connectBtn.disabled = true;
-    connectBtn.classList.remove('accent');
-  }
-});
-
-/* ================ Elevation chart basics ================ */
-const elevCanvas = document.getElementById('elevChart');
-const ectx = elevCanvas.getContext('2d');
+/* Elevation canvas */
+const elevCanvas=document.getElementById('elevChart');
+const ectx=elevCanvas.getContext('2d');
 function drawElevationChart(){
-  elevCanvas.width = window.innerWidth;
-  elevCanvas.height = Math.max(120, window.innerHeight * 0.16);
+  elevCanvas.width=window.innerWidth;
+  elevCanvas.height=Math.max(120, window.innerHeight*0.15);
   ectx.clearRect(0,0,elevCanvas.width,elevCanvas.height);
   if(!elevations.length) return;
-  ectx.fillStyle = '#dcdfe6';
-  ectx.fillRect(0,0,elevCanvas.width,elevCanvas.height);
-  ectx.strokeStyle = '#1672ff';
-  ectx.lineWidth = 2;
-  ectx.beginPath();
-  const maxH = Math.max(...elevations), minH = Math.min(...elevations);
+  ectx.fillStyle='#dcdfe6'; ectx.fillRect(0,0,elevCanvas.width,elevCanvas.height);
+  ectx.strokeStyle='#1672ff'; ectx.lineWidth=2; ectx.beginPath();
+  const maxH=Math.max(...elevations), minH=Math.min(...elevations);
   for(let j=0;j<elevations.length;j++){
-    const x = j*(elevCanvas.width/Math.max(1,coords.length));
-    const y = elevCanvas.height - ((elevations[j]-minH)/Math.max(1,(maxH-minH)) * elevCanvas.height);
+    const x=j*(elevCanvas.width/Math.max(1,coords.length));
+    const y=elevCanvas.height - ((elevations[j]-minH)/Math.max(1,(maxH-minH)) * elevCanvas.height);
     if(j===0) ectx.moveTo(x,y); else ectx.lineTo(x,y);
   }
   ectx.stroke();
@@ -254,342 +149,247 @@ function drawElevationChart(){
 function updateElevationCursor(idx){
   drawElevationChart();
   if(!coords.length) return;
-  ectx.strokeStyle = 'red';
-  ectx.lineWidth = 2;
-  const x = idx*(elevCanvas.width/Math.max(1,coords.length));
-  ectx.beginPath();
-  ectx.moveTo(x,0); ectx.lineTo(x,elevCanvas.height); ectx.stroke();
+  ectx.strokeStyle='red'; ectx.lineWidth=2; const x=idx*(elevCanvas.width/Math.max(1,coords.length));
+  ectx.beginPath(); ectx.moveTo(x,0); ectx.lineTo(x,elevCanvas.height); ectx.stroke();
 }
-window.addEventListener('resize', ()=> { map.invalidateSize(); drawElevationChart(); });
 
-/* ================ Follow logic: keep marker visible when it moves ================ */
+/* Utils */
+function haversine(lat1,lon1,lat2,lon2){
+  const R=6371000; const toRad=d=>d*Math.PI/180;
+  const dLat=toRad(lat2-lat1), dLon=toRad(lon2-lon1);
+  const a=Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
+  return 2*R*Math.asin(Math.sqrt(a));
+}
 function ensureMarkerVisible(latlng){
   const bounds = map.getBounds();
-  if(!bounds.contains(latlng)){
-    map.panTo(latlng, { animate:true });
-  } else {
-    // keep at same zoom, but ensure it's still inside by a margin — if it's near edge, nudge
-    const padRatio = 0.15;
-    const northEast = bounds.getNorthEast();
-    const southWest = bounds.getSouthWest();
-    const latSpan = Math.abs(northEast.lat - southWest.lat);
-    const lngSpan = Math.abs(northEast.lng - southWest.lng);
-    const marginLat = latSpan * padRatio, marginLng = lngSpan * padRatio;
-    if(latlng.lat > northEast.lat - marginLat || latlng.lat < southWest.lat + marginLat ||
-       latlng.lng > northEast.lng - marginLng || latlng.lng < southWest.lng + marginLng){
-      map.panTo(latlng, { animate:true });
-    }
+  if(!bounds.contains(latlng)){ map.panTo(latlng,{animate:true}); return; }
+  const padRatio=0.15;
+  const ne=bounds.getNorthEast(), sw=bounds.getSouthWest();
+  const latSpan=Math.abs(ne.lat-sw.lat), lngSpan=Math.abs(ne.lng-sw.lng);
+  const marginLat = latSpan*padRatio, marginLng = lngSpan*padRatio;
+  if(latlng.lat > ne.lat - marginLat || latlng.lat < sw.lat + marginLat || latlng.lng > ne.lng - marginLng || latlng.lng < sw.lng + marginLng){
+    map.panTo(latlng,{animate:true});
   }
 }
 
-/* ================ Bluetooth helpers & integration ================ */
-function bytesToHex(dataView){
-  const arr=[];
-  for(let i=0;i<dataView.byteLength;i++){
-    arr.push(dataView.getUint8(i).toString(16).padStart(2,'0'));
-  }
-  return arr.join(' ');
+/* UI Updates */
+function updateTopBar(){
+  document.getElementById('dist').textContent=(distance_m/1000).toFixed(2);
+  document.getElementById('hm').textContent=Math.round(totalGain);
+  document.getElementById('cadence').textContent=Math.round(currentCadence);
+  document.getElementById('power').textContent=Math.round(currentWatt);
+  document.getElementById('time').textContent=`${Math.floor(seconds/60).toString().padStart(2,'0')}:${(seconds%60).toString().padStart(2,'0')}`;
 }
 
-/* Try to parse Cycling Power Measurement (0x2A63) - best-effort:
-   flags (uint16) little-endian at offset 0, instantaneous power int16 at offset 2
-*/
-function parseCyclingPowerMeasurement(value){
+/* GPX flow */
+gpxBtn.addEventListener('click',()=>gpxFile.click());
+gpxFile.addEventListener('change', async e=>{
+  const file=e.target.files[0]; if(!file) return;
+  gpxName.textContent = file.name;
+  status.textContent = 'GPX geladen';
+  const text = await file.text();
   try{
-    const dv = value;
+    const xml = (new DOMParser()).parseFromString(text,'application/xml');
+    const geo = toGeoJSON.gpx(xml);
+    const feat = geo.features.find(f=>f.geometry && f.geometry.type==='LineString');
+    if(!feat){ alert('Keine Trackdaten'); return; }
+    coords = feat.geometry.coordinates.map(c=>[c[1],c[0]]);
+    elevations = feat.geometry.coordinates.map(c=> (c[2] !== undefined ? c[2] : 0));
+    if(routeLine) map.removeLayer(routeLine);
+    if(marker) map.removeLayer(marker);
+    routeLine = L.polyline(coords,{color:'#1e90ff', weight:4}).addTo(map);
+    marker = L.marker(coords[0]).addTo(map);
+    map.fitBounds(routeLine.getBounds(),{padding:[40,40]});
+    indexPos=0; distance_m=0; totalGain=0; seconds=0;
+    drawElevationChart(); updateElevationCursor(0);
+    status.textContent='GPX geladen';
+    weightInput.focus();
+  }catch(er){ console.error(er); alert('GPX Fehler'); }
+});
+
+/* Weight */
+weightInput.addEventListener('input', ()=>{
+  const v=parseFloat(weightInput.value);
+  if(!isNaN(v) && v>30){ weight=v; connectBtn.disabled=false; status.textContent='Gewicht gesetzt'; }
+  else { connectBtn.disabled=true; }
+});
+
+/* Fullscreen */
+document.getElementById('fullscreenBtn').addEventListener('click',()=>{
+  const el=document.documentElement;
+  if(!document.fullscreenElement){ if(el.requestFullscreen) el.requestFullscreen(); else if(el.webkitRequestFullscreen) el.webkitRequestFullscreen(); }
+  else { if(document.exitFullscreen) document.exitFullscreen(); }
+});
+document.addEventListener('fullscreenchange', ()=> setTimeout(()=> map.invalidateSize(),120));
+
+/* Start panel hide */
+startHide.addEventListener('click', ()=> { startPanel.style.display='none'; map.invalidateSize(); });
+
+/* Bluetooth parsing helpers */
+function parseCyclingPowerMeasurement(dv){
+  try{
     if(dv.byteLength < 4) return null;
-    const flags = dv.getUint16(0, true);
-    const instantPower = dv.getInt16(2, true); // watts
+    const flags = dv.getUint16(0,true);
+    const instantPower = dv.getInt16(2,true);
     return { instantPower, flags };
-  }catch(e){
-    return null;
-  }
+  }catch(e){ return null; }
 }
-
-/* Try to parse CSC Measurement (crank cadence) 0x2A5B best-effort:
-   flags uint8 at 0; if crank data present then uint16 cumulative crank rev (2-3) and uint16 last event time (4-5)
-   We'll compute cadence if we get crank revolutions/time from successive notifications.
-*/
-let lastCrank = { rev:null, time:null, ts:null };
-function parseCSCMeasurement(value){
+function parseCSCMeasurement(dv){
   try{
-    const dv = value;
     const flags = dv.getUint8(0);
     const crankPresent = (flags & 0x02) !== 0;
     if(!crankPresent) return null;
-    // offsets: crank rev uint32? Spec uses uint32 for cumulative wheel rev + uint16 for event time etc — devices vary.
-    // We'll attempt to read 2 bytes for rev and 2 bytes for time (best-effort)
     if(dv.byteLength >= 7){
-      // many trainers use 2-byte rev (uint16)
-      const rev = dv.getUint16(1, true);
-      const time = dv.getUint16(3, true);
+      const rev = dv.getUint16(1,true);
+      const time = dv.getUint16(3,true);
       return { rev, time };
-    } else if(dv.byteLength >= 5){
-      const rev = dv.getUint16(1, true);
-      const time = dv.getUint16(3, true);
+    } else if(dv.byteLength >=5){
+      const rev = dv.getUint16(1,true);
+      const time = dv.getUint16(3,true);
       return { rev, time };
     }
     return null;
   }catch(e){ return null; }
 }
 
-/* We will implement a graceful, permissive parser: if services/characteristics exist, we subscribe, else show raw bytes. */
+/* Connect Kickr */
 async function connectKickr(){
-  if(!navigator.bluetooth){
-    alert('Web Bluetooth wird von diesem Browser nicht unterstützt. Verwende Chrome/Edge über HTTPS.');
-    log('Web Bluetooth API nicht vorhanden.');
+  if(!navigator.bluetooth){ alert('Web Bluetooth nicht unterstützt. Chrome/Edge + HTTPS erforderlich.'); return; }
+  if(!(location.protocol==='https:' || location.hostname==='localhost' || location.hostname==='127.0.0.1')){
+    alert('Web Bluetooth benötigt HTTPS (oder localhost). Lade die Seite über HTTPS.');
     return;
   }
-  if(!checkHTTPS()){
-    alert('Web Bluetooth erfordert HTTPS. Lade die Seite über GitHub Pages (HTTPS) oder localhost.');
-    log('Bluetooth nicht erlaubt: keine HTTPS.');
-    return;
-  }
-
-  status.textContent = 'Bluetooth: Auswahl dialog wird geöffnet...';
-  log('Aufruf: navigator.bluetooth.requestDevice');
   try{
+    status.textContent='Wähle Gerät';
     const device = await navigator.bluetooth.requestDevice({
       filters: [{ namePrefix: 'KICKR' }],
-      optionalServices: [
-        0x1818, // Cycling Power
-        0x1816  // Cycling Speed and Cadence
-      ]
+      optionalServices: [0x1818, 0x1816]
     });
-    log('Gewähltes Gerät: ' + (device.name || device.id));
-    status.textContent = 'Verbinde mit Gerät...';
-
+    status.textContent='Verbinde...';
     const server = await device.gatt.connect();
-    log('GATT verbunden');
-
-    // Try Cycling Power service
+    // Cycling Power
     try{
-      const cpService = await server.getPrimaryService(0x1818);
-      log('Cycling Power Service vorhanden (0x1818)');
-      try{
-        const cpChar = await cpService.getCharacteristic(0x2A63);
-        await cpChar.startNotifications();
-        cpChar.addEventListener('characteristicvaluechanged', e=>{
-          const dv = e.target.value;
-          const parsed = parseCyclingPowerMeasurement(dv);
-          if(parsed && typeof parsed.instantPower === 'number'){
-            currentWatt = parsed.instantPower;
-            updateTopBar();
-            log('Power parsed: ' + currentWatt + ' W');
-          } else {
-            // fallback: try find int16 in bytes that looks like watts
-            const arr=[];
-            for(let i=0;i<dv.byteLength-1;i++){
-              const v = dv.getInt16(i,true);
-              if(v>-200 && v<3000){
-                currentWatt = v;
-                updateTopBar();
-                log('Power heuristic: ' + currentWatt + ' W (raw: ' + bytesToHex(dv) + ')');
-                break;
-              }
-            }
-            log('CP raw: ' + bytesToHex(dv));
+      const cp = await server.getPrimaryService(0x1818);
+      const cpChar = await cp.getCharacteristic(0x2A63);
+      await cpChar.startNotifications();
+      cpChar.addEventListener('characteristicvaluechanged', e=>{
+        const dv = e.target.value;
+        const parsed = parseCyclingPowerMeasurement(dv);
+        if(parsed && typeof parsed.instantPower === 'number'){ currentWatt = parsed.instantPower; updateTopBar(); }
+        else {
+          // heuristic
+          for(let i=0;i<dv.byteLength-1;i++){
+            const v = dv.getInt16(i,true);
+            if(v>-200 && v<3000){ currentWatt=v; updateTopBar(); break; }
           }
-        });
-      }catch(e){ log('CP characteristic (0x2A63) nicht gefunden: '+e.message); }
-    }catch(e){ log('Cycling Power Service nicht vorhanden: '+e.message); }
-
-    // Try CSC (Cadence)
+        }
+      });
+    }catch(e){ /* ignore */ }
+    // CSC
     try{
-      const cscService = await server.getPrimaryService(0x1816);
-      log('CSC Service vorhanden (0x1816)');
-      try{
-        const cscChar = await cscService.getCharacteristic(0x2A5B);
-        await cscChar.startNotifications();
-        cscChar.addEventListener('characteristicvaluechanged', e=>{
-          const dv = e.target.value;
-          const parsed = parseCSCMeasurement(dv);
-          if(parsed && parsed.rev !== undefined){
-            const now = Date.now();
-            if(lastCrank.rev !== null && parsed.rev !== lastCrank.rev){
-              // crank rev difference (handle wrap)
-              let revDiff = parsed.rev - lastCrank.rev;
-              if(revDiff < 0) revDiff += 0xffff+1;
-              const timeDiff = (parsed.time - lastCrank.time) & 0xffff; // in 1/1024s units
-              const seconds = timeDiff / 1024;
-              const rpm = (revDiff / seconds) * 60;
-              if(Number.isFinite(rpm) && rpm>0 && rpm<1000){
-                currentCadence = Math.round(rpm);
-                updateTopBar();
-                cadenceActive = true;
-                // move marker based on cadence
-                moveMarkerAccordingCadence(currentCadence);
-                log('Cadence calc: ' + currentCadence + ' rpm (revDiff=' + revDiff + ', dt=' + seconds.toFixed(2) + 's)');
-              } else {
-                log('Cadence parse invalid, raw: ' + bytesToHex(dv));
-              }
+      const cs = await server.getPrimaryService(0x1816);
+      const cscChar = await cs.getCharacteristic(0x2A5B);
+      await cscChar.startNotifications();
+      cscChar.addEventListener('characteristicvaluechanged', e=>{
+        const dv = e.target.value;
+        const parsed = parseCSCMeasurement(dv);
+        if(parsed && parsed.rev !== undefined){
+          const now=Date.now();
+          if(lastCrank.rev !== null && parsed.rev !== lastCrank.rev){
+            let revDiff = parsed.rev - lastCrank.rev;
+            if(revDiff < 0) revDiff += 0xffff+1;
+            const timeDiff = (parsed.time - lastCrank.time) & 0xffff; // 1/1024s
+            const secondsDiff = timeDiff / 1024;
+            const rpm = (revDiff / secondsDiff) * 60;
+            if(Number.isFinite(rpm) && rpm>0 && rpm<1000){
+              currentCadence = Math.round(rpm);
+              moveMarkerAccordingCadence(currentCadence);
             }
-            lastCrank.rev = parsed.rev;
-            lastCrank.time = parsed.time;
-            lastCrank.ts = Date.now();
-          } else {
-            // fallback: scan for small integers that look like rpm
-            for(let i=0;i<dv.byteLength-1;i++){
-              const v = dv.getUint8(i);
-              if(v>0 && v<250){
-                currentCadence = v;
-                updateTopBar();
-                cadenceActive = true;
-                moveMarkerAccordingCadence(currentCadence);
-                log('Cadence heuristic: ' + v + ' rpm (raw: ' + bytesToHex(dv) + ')');
-                break;
-              }
-            }
-            log('CSC raw: ' + bytesToHex(dv));
           }
-        });
-      }catch(e){ log('CSC characteristic (0x2A5B) nicht gefunden: '+e.message); }
-    }catch(e){ log('CSC Service nicht vorhanden: '+e.message); }
-
-    // if none provided cadence yet, show instruction
-    status.textContent = 'KICKR verbunden - trete in die Pedale, um die Fahrt zu starten';
-    kickrConnected = true;
-    connectBtn.textContent = 'KICKR verbunden';
-    log('Kickr Verbindung fertig. Warte auf Daten...');
+          lastCrank.rev = parsed.rev; lastCrank.time = parsed.time; lastCrank.ts = Date.now();
+        } else {
+          // fallback heuristic: scan for byte that looks like cadence
+          for(let i=0;i<dv.byteLength;i++){
+            const v=dv.getUint8(i);
+            if(v>0 && v<250){ currentCadence=v; moveMarkerAccordingCadence(currentCadence); break; }
+          }
+        }
+        updateTopBar();
+      });
+    }catch(e){ /* ignore */ }
+    status.textContent='KICKR verbunden — tritt in die Pedale';
+    connectBtn.textContent='KICKR verbunden';
+    kickrConnected=true;
   }catch(err){
     console.error(err);
-    log('Bluetooth Fehler: ' + (err.message || err));
-    alert('Kickr Verbindung fehlgeschlagen: ' + (err.message || err));
-    status.textContent = 'Kickr Verbindung fehlgeschlagen';
+    alert('Verbindung fehlgeschlagen: ' + (err.message || err));
+    status.textContent='Verbindung fehlgeschlagen';
   }
 }
 
-/* ================ Marker movement when cadence present ================ */
-/* Move along GPX track proportional to cadence and elapsed time.
-   We'll estimate step size based on cadence: higher cadence -> bigger step.
-   This is coarse (no gear info). We ensure marker stays in bounds.
-*/
+/* Movement based on cadence */
 function moveMarkerAccordingCadence(rpm){
-  if(!coords.length) return;
+  if(!coords.length || !marker) return;
   const now = Date.now();
-  const dt = Math.max(0.01, (now - lastMarkerTime)/1000);
+  const dt = Math.max(0.01,(now - lastMarkerTime)/1000);
   lastMarkerTime = now;
-  // compute number of track indices to advance:
-  // baseline: rpm 60 -> advance ~1 index per second; rpm 120 -> ~2 idx/s
-  // adjust by a factor depending on total points
+  // step factor
   const factor = Math.max(1, Math.round((rpm/60) * dt * Math.max(1, coords.length/200)));
+  const prevIndex = indexPos;
   indexPos = Math.min(coords.length-1, indexPos + factor);
   const pos = coords[indexPos];
   marker.setLatLng(pos);
   ensureMarkerVisible(L.latLng(pos[0], pos[1]));
-  // compute small distance using haversine between last and current if available
-  // accumulate distance and elevation gain
-  // simple: compute between previous index and current
-  if(indexPos>0){
-    const prev = coords[Math.max(0, indexPos-factor)];
+  // accumulate distance & gain
+  if(indexPos > prevIndex){
+    const prev = coords[prevIndex];
     const d = haversine(prev[0], prev[1], pos[0], pos[1]);
     distance_m += d;
-    const h1 = elevations[Math.max(0, indexPos-factor)]||0;
-    const h2 = elevations[indexPos]||0;
+    const h1 = elevations[prevIndex] || 0, h2 = elevations[indexPos] || 0;
     if(h2>h1) totalGain += (h2-h1);
   }
-  // update elevation cursor and topbar
   updateElevationCursor(indexPos);
   updateTopBar();
-}
-
-/* haversine */
-function haversine(lat1,lon1,lat2,lon2){
-  const R=6371000;
-  const toRad = d => d * Math.PI/180;
-  const dLat = toRad(lat2-lat1);
-  const dLon = toRad(lon2-lon1);
-  const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
-  return 2*R*Math.asin(Math.sqrt(a));
-}
-
-/* If cadence stops, start a 10s timer to prompt */
-let pauseTimer = null;
-function cadenceWatchdog(){
-  if(currentCadence < 5){
-    if(pauseTimer) return;
+  // cadence watchdog reset
+  if(pauseTimer){ clearTimeout(pauseTimer); pauseTimer=null; }
+  // start pause timer if cadence low
+  if(currentCadence < 5 && !pauseTimer){
     pauseTimer = setTimeout(()=>{
-      // only show when we've actually started (indexPos>1)
       if(indexPos>1){
-        const cont = confirm('Keine Kadenz erkannt. Möchtest du die Fahrt beenden?');
-        if(cont){
-          showSummary();
-        } else {
-          // continue
-          pauseTimer = null;
-        }
-      } else {
-        pauseTimer = null;
-      }
+        const end = confirm('Keine Kadenz erkannt. Fahrt beenden?');
+        if(end){ showSummary(); }
+        else { pauseTimer = null; }
+      } else { pauseTimer = null; }
     }, 10000);
-  } else {
-    if(pauseTimer){ clearTimeout(pauseTimer); pauseTimer = null; }
   }
 }
-setInterval(cadenceWatchdog, 1000);
 
-/* ================ Update topbar UI ================ */
-function updateTopBar(){
-  document.getElementById('dist').textContent = (distance_m/1000).toFixed(2);
-  document.getElementById('hm').textContent = Math.round(totalGain);
-  document.getElementById('cadence').textContent = Math.round(currentCadence);
-  document.getElementById('power').textContent = Math.round(currentWatt);
-  document.getElementById('time').textContent = `${Math.floor(seconds/60).toString().padStart(2,'0')}:${(seconds%60).toString().padStart(2,'0')}`;
-}
-
-/* ================ Popup summary ================ */
+/* show summary */
 function showSummary(){
-  summaryContent.innerHTML = `
-    <h2>Zusammenfassung</h2>
+  summaryContent.innerHTML = `<div style="padding:8px 0"><h2>Zusammenfassung</h2>
     <p>Distanz: ${(distance_m/1000).toFixed(2)} km</p>
     <p>Dauer: ${Math.floor(seconds/60)}:${(seconds%60).toString().padStart(2,'0')}</p>
     <p>Höhenmeter: ${Math.round(totalGain)}</p>
     <p>Watt (aktuell): ${Math.round(currentWatt)}</p>
     <p>Kadenz (aktuell): ${Math.round(currentCadence)}</p>
-    <div style="margin-top:12px;display:flex;gap:10px;justify-content:center;">
-      <button onclick="document.getElementById('popupSummary').style.display='none';">Schließen</button>
-    </div>
-  `;
-  popupSummary.style.display = 'block';
+    <div style="margin-top:12px;text-align:center"><button onclick="document.getElementById('popupSummary').style.display='none'">Schließen</button></div>
+  </div>`;
+  popupSummary.style.display='block';
 }
 
-/* ================ Fullscreen ================ */
-document.getElementById('fullscreenBtn').addEventListener('click', ()=>{
-  const el = document.documentElement;
-  if(!document.fullscreenElement){
-    if(el.requestFullscreen) el.requestFullscreen();
-    else if(el.webkitRequestFullscreen) el.webkitRequestFullscreen();
-  } else {
-    if(document.exitFullscreen) document.exitFullscreen();
-  }
-});
-document.addEventListener('fullscreenchange', ()=> setTimeout(()=>map.invalidateSize(),120));
-
-/* ================ Start/Hide UI handlers ================ */
-startAnyway.addEventListener('click', ()=> {
-  startPanel.style.display = 'none';
-  map.invalidateSize();
-});
-connectBtn.addEventListener('click', connectKickr);
-
-/* ================ Seconds counter (trip time) ================ */
+/* Seconds counter */
 setInterval(()=>{
-  if(kickrConnected && currentCadence>0 && indexPos>0){
-    seconds++;
-    updateTopBar();
-  }
+  if(kickrConnected && currentCadence>0 && indexPos>0) { seconds++; updateTopBar(); }
 },1000);
 
-/* ================ Initial state / logs ================ */
-if(!checkHTTPS()){
-  status.textContent = 'HTTPS nicht aktiv: Web Bluetooth nur über HTTPS/localhost verfügbar';
-  log('Achtung: lade die Seite über GitHub Pages (HTTPS) für KICKR Verbindung.');
-} else {
-  status.textContent = 'Bereit: lade GPX & gib Gewicht ein';
-}
+/* Wiring */
+connectBtn.addEventListener('click', connectKickr);
 
-/* ================ Final touches: ensure map visible when loaded ================ */
+/* initial state */
+status.textContent = 'lade GPX & gib Gewicht ein';
+drawElevationChart();
 map.whenReady(()=> map.invalidateSize());
+window.addEventListener('resize', ()=> { map.invalidateSize(); drawElevationChart(); });
 
 </script>
 </body>
