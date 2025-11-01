@@ -2,20 +2,23 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<title>GPX Kickr Live & Sim Tracker</title>
+<title>GPX Kickr Live Tracker mit Höhenprofil</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
-html, body {margin:0; padding:0; height:100%; overflow:hidden; background:#f0f0f0;}
-#map {width:100%; height:100%; position:absolute; top:0; left:0; z-index:1;}
+html,body {margin:0; padding:0; height:100%; overflow:hidden; background:#f0f0f0;}
+#map {position:absolute; top:0; left:0; width:100%; height:100%; z-index:1;}
+
 #topbar {
   position:fixed; top:0; left:0; width:100%;
-  background:rgba(255,255,255,0.85); color:#000;
-  z-index:1000; padding:10px;
+  background:rgba(0,0,0,0.7); color:#fff;
+  z-index:1000; padding:5px 10px;
   font-family:sans-serif; font-size:14px;
-  display:flex; justify-content:space-around; align-items:center;
+  display:flex; flex-direction:column; gap:4px;
 }
+#topbar span {display:flex; gap:15px;}
+
 #controls {
-  position:fixed; bottom:10px; left:50%; transform:translateX(-50%);
+  position:fixed; bottom:110px; left:50%; transform:translateX(-50%);
   background:rgba(255,255,255,0.85); color:#000;
   padding:6px 10px; border-radius:10px;
   display:flex; gap:10px; z-index:1000;
@@ -28,17 +31,34 @@ html, body {margin:0; padding:0; height:100%; overflow:hidden; background:#f0f0f
 }
 #connectBtn.connected {background:#1aa01a; color:#fff;}
 #gpxfile {display:none;}
+
+#popupSummary {
+  position:fixed; top:15%; left:50%; transform:translateX(-50%);
+  width:66%; background:rgba(255,255,255,0.85);
+  color:#000; z-index:2000; padding:20px;
+  border-radius:12px; font-family:sans-serif; font-size:16px;
+  display:none; text-align:center;
+}
+
+#elevChart {
+  position:fixed; bottom:0; left:0; width:100%; height:25%;
+  background:rgba(0,0,0,0.2); z-index:900;
+}
 </style>
 </head>
 <body>
 
 <div id="topbar">
-  <span>Distanz: <b id="dist">0.00 km</b></span>
-  <span>Zeit: <b id="time">00:00</b></span>
-  <span>Watt: <b id="power">0</b></span>
-  <span>HM: <b id="hm">0</b></span>
-  <span>Steigung: <b id="slope">0%</b></span>
-  <span>Kadenz: <b id="cadence">0</b></span>
+  <span>
+    <b>Distanz:</b> <span id="dist">0.00 km</span>
+    <b>Zeit:</b> <span id="time">00:00</span>
+    <b>HM:</b> <span id="hm">0</span>
+  </span>
+  <span>
+    <b>Watt:</b> <span id="power">0</span>
+    <b>Kadenz:</b> <span id="cadence">0</span>
+    <b>Steigung:</b> <span id="slope">0%</span>
+  </span>
 </div>
 
 <div id="controls">
@@ -50,26 +70,32 @@ html, body {margin:0; padding:0; height:100%; overflow:hidden; background:#f0f0f
 </div>
 
 <div id="map"></div>
+<canvas id="elevChart"></canvas>
+<div id="popupSummary"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/togeojson/0.16.0/togeojson.min.js"></script>
+
 <script>
-let map = L.map('map').setView([51.5,10],7);
-const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+let map=L.map('map').setView([51.5,10],7);
+const osm=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
   maxZoom:19, attribution:'&copy; OpenStreetMap'
 }).addTo(map);
 
 let coords=[], elevations=[], routeLine=null, marker=null;
 let totalGain=0, distance_m=0, seconds=0, timerInt=null;
-let follow=true, i=0, lastMove=Date.now(), paused=false;
+let i=0, paused=false;
+let follow=true;
+const g=9.81;
 
-// GPX laden
+// Pflichtfelder GPX + Gewicht
 const fileInput=document.getElementById('gpxfile');
 document.getElementById('gpxBtn').addEventListener('click',()=>{
   const weight=document.getElementById('weight').value;
   if(!weight){alert("Bitte Gewicht eingeben!"); return;}
   fileInput.click();
 });
+
 fileInput.addEventListener('change',e=>{
   const file=e.target.files[0]; if(!file) return;
   const reader=new FileReader();
@@ -80,14 +106,21 @@ fileInput.addEventListener('change',e=>{
     if(!feat){alert("Keine Strecke gefunden!");return;}
     coords=feat.geometry.coordinates.map(c=>[c[1],c[0]]);
     elevations=feat.geometry.coordinates.map(c=>c[2]||0);
+
     if(routeLine) map.removeLayer(routeLine);
     routeLine=L.polyline(coords,{color:'#00aaff',weight:4}).addTo(map);
     map.fitBounds(routeLine.getBounds());
     if(marker) map.removeLayer(marker);
     marker=L.marker(coords[0]).addTo(map);
+
     totalGain=0; distance_m=0; seconds=0; i=0; paused=false;
     updateTopBar();
-    alert("GPX geladen und Fahrt bereit!");
+    drawElevationChart();
+
+    document.getElementById('weight').style.display='none';
+    document.getElementById('gpxBtn').style.display='none';
+    alert("GPX geladen! KICKR-Verbindung wird automatisch gestartet.");
+    connectKickr();
   };
   reader.readAsText(file);
 });
@@ -111,79 +144,96 @@ document.getElementById('fullscreenBtn').addEventListener('click',()=>{
   else document.exitFullscreen();
 });
 
-// Web Bluetooth KICKR verbinden & Sim Modus
-let kickrDevice=null, kickrServer=null, cyclingService=null;
-document.getElementById('connectBtn').addEventListener('click',async()=>{
+// KICKR Verbindung via Web Bluetooth
+let kickrDevice=null, kickrServer=null, powerService=null;
+let currentCadence=0, currentWatt=0;
+async function connectKickr(){
   const btn=document.getElementById('connectBtn');
-  if(btn.classList.contains('connected')){
-    btn.classList.remove('connected'); btn.textContent='🔗 KICKR verbinden';
-    if(kickrDevice && kickrDevice.gatt.connected) kickrDevice.gatt.disconnect();
-  }else{
-    try{
-      kickrDevice = await navigator.bluetooth.requestDevice({
-        filters:[{namePrefix:'KICKR'}],
-        optionalServices:['cycling_power','fitness_machine']
-      });
-      kickrServer = await kickrDevice.gatt.connect();
-      btn.classList.add('connected'); btn.textContent='✅ KICKR verbunden';
-      cyclingService = await kickrServer.getPrimaryService('cycling_power');
-      // Simulation & Characteristic abonnieren hier
-    }catch(err){alert("Verbindung fehlgeschlagen: "+err);}
-  }
-});
+  try{
+    kickrDevice = await navigator.bluetooth.requestDevice({
+      filters:[{namePrefix:'KICKR'}],
+      optionalServices:['cycling_power','fitness_machine']
+    });
+    kickrServer = await kickrDevice.gatt.connect();
+    btn.classList.add('connected'); btn.textContent='✅ KICKR verbunden';
+    powerService = await kickrServer.getPrimaryService('cycling_power');
 
-// Marker & Werte Live-Update
-setInterval(async()=>{
+    const char = await powerService.getCharacteristic('cycling_power_measurement');
+    char.startNotifications();
+    char.addEventListener('characteristicvaluechanged', e=>{
+      const dv=new DataView(e.target.value.buffer);
+      currentCadence=dv.getUint16(4,true)/2; // Beispiel
+      currentWatt=dv.getInt16(6,true); // Beispiel
+    });
+  }catch(err){alert("KICKR Verbindung fehlgeschlagen: "+err);}
+}
+
+// Marker + Daten Live
+const elevCanvas=document.getElementById('elevChart');
+const elevCtx=elevCanvas.getContext('2d');
+
+function drawElevationChart(){
+  elevCanvas.width=window.innerWidth;
+  elevCanvas.height=window.innerHeight*0.25;
+  elevCtx.clearRect(0,0,elevCanvas.width,elevCanvas.height);
+  elevCtx.strokeStyle='orange'; elevCtx.lineWidth=2;
+  elevCtx.beginPath();
+  const maxH=Math.max(...elevations), minH=Math.min(...elevations);
+  for(let j=0;j<elevations.length;j++){
+    const x=j*(elevCanvas.width/coords.length);
+    const y=elevCanvas.height-( (elevations[j]-minH)/(maxH-minH) * elevCanvas.height );
+    if(j===0) elevCtx.moveTo(x,y);
+    else elevCtx.lineTo(x,y);
+  }
+  elevCtx.stroke();
+}
+
+function updateElevationCursor(idx){
+  drawElevationChart();
+  elevCtx.strokeStyle='red'; elevCtx.lineWidth=2;
+  const x=idx*(elevCanvas.width/coords.length);
+  elevCtx.beginPath();
+  elevCtx.moveTo(x,0);
+  elevCtx.lineTo(x,elevCanvas.height);
+  elevCtx.stroke();
+}
+
+// Marker und Werte live
+setInterval(()=>{
   if(!coords.length || !marker) return;
-  marker.setLatLng(coords[i]);
-  if(follow) map.setView(coords[i]);
-  if(i>0){
-    const prev=coords[i-1], curr=coords[i];
+  if(currentCadence>5){
+    const prev=coords[i], curr=coords[i+1];
     const dist=haversine(prev[0],prev[1],curr[0],curr[1]);
     distance_m+=dist;
-    const h1=elevations[i-1], h2=elevations[i];
+    const h1=elevations[i], h2=elevations[i+1];
     if(h2>h1) totalGain+=(h2-h1);
+    marker.setLatLng(curr);
+    if(follow) map.setView(curr);
+
+    i=Math.min(i+1, coords.length-1);
+    updateElevationCursor(i);
   }
-  // KICKR Daten abrufen & Widerstand nach Track-Slope setzen
-  if(kickrDevice && kickrDevice.gatt.connected){
-    // Hier echte Werte lesen und Widerstand schreiben
-    // document.getElementById('power').textContent = Watt
-    // document.getElementById('cadence').textContent = Kadenz
-    // document.getElementById('slope').textContent = Track-Steigung
-  }
+
+  document.getElementById('cadence').textContent=Math.round(currentCadence);
+  document.getElementById('power').textContent=Math.round(currentWatt);
+  document.getElementById('slope').textContent=
+    ((elevations[i]-elevations[i-1]||0)/haversine(coords[i-1][0],coords[i-1][1],coords[i][0],coords[i][1])*100).toFixed(1)+"%";
+
   updateTopBar();
-  lastMove=Date.now();
-  if(i<coords.length-1) i++;
 },500);
 
-// Pause-Abfrage nach 10 Sekunden Stillstand
+// Pause-Abfrage nach 10s RPM <5
 setInterval(()=>{
-  if(Date.now()-lastMove>10000 && !paused && coords.length){
+  if(currentCadence<5 && !paused && coords.length){
     paused=true;
-    if(confirm("Pause erkannt. Willst du die Fahrt beenden?")){
-      alert(`Gesamt: ${(distance_m/1000).toFixed(2)} km, ${totalGain.toFixed(0)} HM, Zeit: ${Math.floor(seconds/60)}:${seconds%60}`);
-      distance_m=0; totalGain=0; seconds=0; i=0; paused=false;
+    if(confirm("Pause erkannt. Fahrt beenden?")){
+      showSummary();
+      paused=false; i=0; distance_m=0; totalGain=0; seconds=0;
       updateTopBar();
-    }else{paused=false; lastMove=Date.now();}
+    }else{
+      paused=false;
+    }
   }
 },1000);
 
-function updateTopBar(){
-  document.getElementById('dist').textContent=(distance_m/1000).toFixed(2)+" km";
-  document.getElementById('hm').textContent=totalGain.toFixed(0);
-  // Echte Werte vom KICKR einsetzen:
-  // document.getElementById('power').textContent = Watt;
-  // document.getElementById('cadence').textContent = Kadenz;
-  // document.getElementById('slope').textContent = Steigung;
-}
-
-function haversine(lat1,lon1,lat2,lon2){
-  const R=6371000,toRad=d=>d*Math.PI/180;
-  const dLat=toRad(lat2-lat1), dLon=toRad(lon2-lon1);
-  const a=Math.sin(dLat/2)**2+
-           Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
-  return 2*R*Math.asin(Math.sqrt(a));
-}
-</script>
-</body>
-</html>
+function showSummary
