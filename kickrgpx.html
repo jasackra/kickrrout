@@ -2,415 +2,165 @@
 <html lang="de">
 <head>
 <meta charset="utf-8"/>
-<title>Kickr Live Tracker — FTMS integriert</title>
+<title>Live Kickr GPX App</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
-  html,body{height:100%;margin:0;font-family:Inter,system-ui,Arial;}
-  #controls{
-    position:absolute;left:10px;top:10px;z-index:1500;
-    width:300px;background:rgba(255,255,255,0.96);padding:12px;border-radius:10px;box-shadow:0 6px 18px rgba(0,0,0,0.15);
+  html, body {height:100%; margin:0; padding:0; overflow:hidden; font-family:sans-serif;}
+  #controls {
+    position:absolute; top:10px; left:10px; z-index:1000;
+    background:rgba(255,255,255,0.95); padding:12px; border-radius:10px;
   }
-  #controls input,#controls button{width:100%;margin-top:8px;padding:8px;border-radius:6px;border:1px solid #ddd;font-size:14px}
-  #fullscreenBtn{background:#222;color:#fff;border:none}
-  #infoBar{
-    position:absolute;right:10px;top:10px;z-index:1500;
-    background:rgba(0,0,0,0.75);color:#fff;padding:10px 14px;border-radius:10px;text-align:left;
-    min-width:240px;font-size:14px;line-height:1.4;
+  #controls input, #controls button {display:block; margin-top:6px; font-size:16px;}
+  #infoBar {
+    position:absolute; top:10px; right:10px; z-index:1000;
+    width:220px; background:rgba(0,0,0,0.8); color:#fff;
+    padding:10px; border-radius:10px; font-size:14px;
+    line-height:1.4em;
+    font-weight:bold;
   }
-  #map{position:absolute;top:0;left:0;right:0;bottom:0;z-index:0}
-  #profile {
-    position:absolute;left:10px;right:10px;bottom:10px;height:140px;z-index:1400;
-    background:#e9e9e9;border-radius:10px;padding:6px;box-shadow:0 6px 18px rgba(0,0,0,0.12);
+  #heightChart {
+    position:absolute; bottom:10px; left:10px; right:10px; height:120px; z-index:1000;
+    background:#eee; border-radius:8px; padding:4px;
   }
-  #profileCanvas{width:100%;height:100%;display:block;border-radius:6px}
-  #endPopupOverlay{
-    display:none;position:fixed;inset:0;z-index:3000;backdrop-filter: blur(2px);
-    background:rgba(0,0,0,0.5);justify-content:center;align-items:center;
+  #fullscreenBtn {
+    margin-top:6px; padding:6px 10px; border:none; border-radius:6px; background:#444; color:#fff; cursor:pointer; font-weight:bold;
   }
-  #endPopup{
-    width:66%;height:66%;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;
-    background-size:cover;background-position:center; color:#fff; text-shadow:0 2px 6px rgba(0,0,0,0.7);
-    padding:18px;
+  #map {width:100%; height:100%;}
+  #endPopup {
+    position:absolute; top:10%; left:50%; transform:translateX(-50%);
+    width:66%; height:66%; background:rgba(255,255,255,0.9);
+    border-radius:12px; z-index:2000; display:none;
+    padding:20px; text-align:center;
   }
-  #endPopup .panel{background:rgba(0,0,0,0.35);padding:12px;border-radius:8px;}
-  #endPopup button{align-self:center;margin-top:12px;padding:10px 18px;border-radius:8px;border:none;background:#00aaff;color:#fff;font-weight:600}
-  .small{font-size:13px;color:#ddd}
+  #endPopup img {max-width:100%; border-radius:10px; margin-bottom:10px;}
 </style>
 </head>
 <body>
 
 <div id="controls">
-  <label>GPX-Datei (Pflicht)</label>
-  <input id="gpxfile" type="file" accept=".gpx">
-  <label>Fahrergewicht (kg)</label>
-  <input id="weight" type="number" value="75" min="30" max="150">
-  <button id="connectBtn">Kickr verbinden</button>
+  GPX Datei auswählen: <input type="file" id="gpxfile" accept=".gpx"/><br>
+  Fahrergewicht (kg): <input type="number" id="weight" value="75" min="30" max="150"/><br>
+  <button id="connectBtn">Kickr verbinden</button><br>
   <button id="fullscreenBtn">⛶ Vollbild</button>
-  <div id="kickStatus" class="small" style="margin-top:8px">Kickr: <span id="kickrName">nicht verbunden</span></div>
 </div>
 
 <div id="infoBar">
-  <div>Dauer: <strong id="time">0:00</strong> &nbsp; Distanz: <strong id="distance">0.00</strong> km</div>
-  <div>Höhenmeter: <strong id="hm">0</strong> m &nbsp; Steigung: <strong id="slope">0.0</strong> %</div>
-  <div>Leistung: <strong id="power">0</strong> W &nbsp; Kadenz: <strong id="cadence">0</strong> rpm</div>
-  <div style="margin-top:6px" class="small">Status: <span id="status">bereit</span></div>
+  Distanz: <span id="dist">0</span> km<br>
+  Dauer: <span id="time">0</span> min<br>
+  Watt: <span id="power">0</span> W<br>
+  Kadenz: <span id="cadence">0</span> rpm<br>
+  Höhenmeter: <span id="hm">0</span> m
 </div>
 
+<div id="heightChart"></div>
 <div id="map"></div>
 
-<div id="profile">
-  <canvas id="profileCanvas"></canvas>
-</div>
-
-<!-- End Popup mit Kickr im Gebirge als Hintergrund -->
-<div id="endPopupOverlay" style="display:none;position:fixed;left:0;top:0;right:0;bottom:0;align-items:center;justify-content:center;">
-  <div id="endPopup" style="background-image:url('https://i.imgur.com/3BfFpkY.jpeg')">
-    <div class="panel">
-      <h2 style="margin:6px 0">Fahrt beendet</h2>
-      <div>Distanz: <strong id="endDist">0.00</strong> km</div>
-      <div>Höhenmeter: <strong id="endHm">0</strong> m</div>
-      <div>Dauer: <strong id="endTime">0:00</strong></div>
-      <div>Kalorien: <strong id="endCal">0</strong> kcal</div>
-      <div>Durchschnittsleistung: <strong id="endAvgPower">0</strong> W</div>
-      <button onclick="closeEndPopup()">Schließen</button>
-    </div>
-  </div>
+<div id="endPopup">
+  <img src="kickr_gebirge.jpg" alt="Kickr im Gebirge"/>
+  <h2>Fahrt beendet</h2>
+  <p>Distanz: <span id="endDist">0</span> km</p>
+  <p>Dauer: <span id="endTime">0</span> min</p>
+  <p>Höhenmeter: <span id="endHm">0</span> m</p>
+  <p>Watt: <span id="endPower">0</span> W</p>
+  <button onclick="closeEndPopup()">Schließen</button>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/togeojson/0.16.0/togeojson.min.js"></script>
-
 <script>
-/* ---------------------------
-   Variablen & Map Setup
-   --------------------------- */
-const g = 9.81;
-const defaultSpeed = 5.56; // m/s ~ 20 km/h baseline used for slope->power
-let coords = [], elevations = [];
-let routeLayer=null, marker=null, idx = 0;
-let totalGain = 0, distance = 0, startTime = null;
-let cadence = 0, power = 0;
+let map = L.map('map').setView([51.5,10],6);
+const osmLight = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+let routeLine=null, marker=null, coords=[], elevations=[], idx=0, totalGain=0;
+let playInterval=null, startTime=null;
+let cadence=0;
 
-// Leaflet map
-const map = L.map('map',{zoomControl:true}).setView([51.5,10],6);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19, attribution:'&copy; OSM'}).addTo(map);
+function haversine(lat1,lon1,lat2,lon2){const R=6371000, toRad=d=>d*Math.PI/180;const dLat=toRad(lat2-lat1), dLon=toRad(lon2-lon1);const a=Math.sin(dLat/2)**2+Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;return 2*R*Math.asin(Math.sqrt(a));}
 
-/* ---------------------------
-   UI helpers
-   --------------------------- */
-function setStatus(txt){ document.getElementById('status').textContent = txt; }
-function setKickrName(n){ document.getElementById('kickrName').textContent = n || 'nicht verbunden'; }
-
-/* ---------------------------
-   GPX: laden & Track zeichnen
-   --------------------------- */
 document.getElementById('gpxfile').addEventListener('change', e=>{
-  const f = e.target.files[0]; if(!f) return;
-  const reader = new FileReader();
-  reader.onload = ev => {
-    try {
-      const xml = new DOMParser().parseFromString(ev.target.result,"application/xml");
-      const geo = toGeoJSON.gpx(xml);
-      const feature = geo.features.find(fe=>fe.geometry && fe.geometry.type==="LineString");
-      if(!feature){ alert("Keine Trackdaten in der GPX gefunden."); return; }
-      coords = feature.geometry.coordinates.map(c=>[c[1],c[0]]);
-      elevations = feature.geometry.coordinates.map(c=>c[2]||0);
-      totalGain = 0; distance = 0; idx = 0;
-      if(routeLayer) map.removeLayer(routeLayer);
-      routeLayer = L.polyline(coords,{color:'#00aaff', weight:4}).addTo(map);
-      map.fitBounds(routeLayer.getBounds());
-      if(marker) map.removeLayer(marker);
-      marker = L.marker(coords[0]).addTo(map);
-      startTime = Date.now();
-      drawProfile();
-      setStatus('GPX geladen');
-    } catch(err){ console.error(err); alert('Fehler beim Parsen der GPX: '+err); }
+  const file=e.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=evt=>{
+    const gpxDoc=new DOMParser().parseFromString(evt.target.result,"application/xml");
+    const geo=toGeoJSON.gpx(gpxDoc);
+    const feature=geo.features.find(f=>f.geometry?.type==="LineString");
+    if(!feature){alert("Keine Trackdaten gefunden."); return;}
+    coords=feature.geometry.coordinates.map(c=>[c[1],c[0]]);
+    elevations=feature.geometry.coordinates.map(c=>c[2]||0);
+    totalGain=0; idx=0;
+    if(routeLine) map.removeLayer(routeLine);
+    routeLine=L.polyline(coords,{color:'#00aaff',weight:4}).addTo(map);
+    map.fitBounds(routeLine.getBounds());
+    if(marker) map.removeLayer(marker);
+    marker=L.marker(coords[0]).addTo(map);
   };
-  reader.readAsText(f);
+  reader.readAsText(file);
 });
 
-/* ---------------------------
-   Höhenprofil (Canvas)
-   --------------------------- */
-const profCanvas = document.getElementById('profileCanvas');
-const pctx = profCanvas.getContext('2d');
-function resizeProfile(){
-  profCanvas.width = profCanvas.clientWidth;
-  profCanvas.height = profCanvas.clientHeight;
-  drawProfile();
-}
-window.addEventListener('resize', resizeProfile);
-
-function drawProfile(){
-  if(!elevations || elevations.length===0){ pctx.clearRect(0,0,profCanvas.width,profCanvas.height); return; }
-  const w = profCanvas.width, h = profCanvas.height;
-  pctx.clearRect(0,0,w,h);
-  pctx.fillStyle = '#e6e6e6'; pctx.fillRect(0,0,w,h);
-  const minH = Math.min(...elevations), maxH = Math.max(...elevations);
-  pctx.strokeStyle = '#00aaff'; pctx.lineWidth = 3; pctx.beginPath();
-  for(let i=0;i<elevations.length;i++){
-    const x = i/(elevations.length-1) * w;
-    const y = h - ( (elevations[i]-minH) / (maxH-minH || 1) ) * h;
-    if(i===0) pctx.moveTo(x,y); else pctx.lineTo(x,y);
-  }
-  pctx.stroke();
-  // draw cursor
-  drawProfileCursor(idx);
-}
-function drawProfileCursor(i){
-  if(!elevations.length) return;
-  const w = profCanvas.width, h = profCanvas.height;
-  const x = (i/(elevations.length-1))*w;
-  pctx.strokeStyle = 'rgba(255,60,60,0.95)';
-  pctx.lineWidth = 2;
-  pctx.beginPath(); pctx.moveTo(x,0); pctx.lineTo(x,h); pctx.stroke();
-}
-
-/* ---------------------------
-   FTMS / Bluetooth
-   --------------------------- */
-/*
-  Best-effort FTMS integration:
-  - Wir requesten das Fitness Machine Service ("fitness_machine") und Cycling Power ("cycling_power")
-  - Wir abonnieren Cycling Power Measurement (2A63) wenn verfügbar, um Leistung auszulesen.
-  - Wir attempten, Fitness Machine Control Point zu nutzen, um SetTargetedPower (opcode 0x05) zu senden.
-  - Achtung: einige Geräte benötigen andere opcodes / vendor specifics. Wenn dein KICKR anders reagiert,
-    sag mir Gerätname (z. B. "KICKR CORE 6DF5") — ich passe opcodes sofort an.
-*/
-let bleDevice = null;
-let cpCharacteristic = null; // cycling power measurement notifications
-let ftmControlChar = null; // fitness machine control point
-
-document.getElementById('connectBtn').addEventListener('click', async ()=>{
-  setStatus('Suche Kickr...');
-  try{
-    // request the device: allow either namePrefix 'KICKR' or any device that exposes FTMS/Cycling Power
-    bleDevice = await navigator.bluetooth.requestDevice({
-      // filters: [{namePrefix:'KICKR'}], // if you want strict filter, uncomment
-      acceptAllDevices: false,
-      optionalServices: ['fitness_machine','cycling_power','cycling_speed_and_cadence']
-    }).catch(()=>null);
-
-    // fallback: if requestDevice returned null because acceptAllDevices false, ask with namePrefix
-    if(!bleDevice){
-      bleDevice = await navigator.bluetooth.requestDevice({
-        filters:[{namePrefix:'KICKR'}],
-        optionalServices: ['fitness_machine','cycling_power','cycling_speed_and_cadence']
-      });
-    }
-
-    if(!bleDevice){ setStatus('Kein Gerät gewählt'); return; }
-    setKickrName(bleDevice.name || 'unbekannt');
-    setStatus('Verbinde GATT...');
-    const server = await bleDevice.gatt.connect();
-    setStatus('Verbunden, Services holen...');
-
-    // Cycling Power Measurement: service 0x1818, characteristic 0x2A63
-    try {
-      const cpService = await server.getPrimaryService('cycling_power');
-      // characteristic name sometimes 'cycling_power_measurement'
-      cpCharacteristic = await cpService.getCharacteristic('cycling_power_measurement');
-      await cpCharacteristic.startNotifications();
-      cpCharacteristic.addEventListener('characteristicvaluechanged', onCyclingPower);
-      setStatus('Cycling Power notifications aktiv');
-    } catch(e){
-      console.warn('Cycling Power nicht verfügbar:', e);
-    }
-
-    // Fitness Machine Control Point (service 0x1826, characteristic 0x2AD9)
-    try{
-      const ftmService = await server.getPrimaryService('fitness_machine');
-      // characteristic id sometimes 'fitness_machine_control_point'
-      ftmControlChar = await ftmService.getCharacteristic('fitness_machine_control_point');
-      setStatus(st => 'FTMS Control bereit');
-    }catch(e){
-      console.warn('FTMS Control nicht verfügbar:', e);
-      // still continue: some trainers accept "trainer_control" vendor char, not covered here
-    }
-
-    setStatus('Kickr verbunden');
-  }catch(err){
-    console.error(err);
-    alert('Bluetooth Fehler: ' + (err && err.message ? err.message : String(err)));
-    setStatus('Fehler bei Verbindung');
-  }
+document.getElementById('fullscreenBtn').addEventListener('click', ()=>{
+  const el=document.getElementById('map');
+  if(!document.fullscreenElement){if(el.requestFullscreen) el.requestFullscreen();}
+  else{if(document.exitFullscreen) document.exitFullscreen();}
 });
 
-// parse Cycling Power Measurement (best-effort)
-function onCyclingPower(e){
-  const dv = e.target.value;
-  // Specification: flags (uint16) then other fields. Many devices put instantaneous power at byte offset 2 (int16).
-  try{
-    // read 16-bit signed instant power at offset 2 (little-endian) — common placement
-    const powerValue = dv.getInt16(2, true);
-    power = powerValue;
-    document.getElementById('power').textContent = Math.round(power);
-    // cadence may be in flags+optional fields; try to get if present at offset 6 as uint8 (best-effort)
-    if(dv.byteLength >= 7){
-      const possibleCadence = dv.getUint8(6);
-      if(possibleCadence>0 && possibleCadence<300){
-        cadence = possibleCadence;
-        document.getElementById('cadence').textContent = Math.round(cadence);
-      }
-    }
-    setStatus('Daten: Watt ' + power + ' W');
-  }catch(err){
-    console.warn('Fehler beim Auslesen Cycling Power:', err);
-  }
+function connectKickr(){
+  // Hier würde man die FTMS/Bluetooth Verbindung starten
+  alert("Kickr verbinden (Simulation hier nur)");
 }
 
-/* ---------------------------
-   Sim/Auto-Control: Steigung -> Ziel-Watt
-   Steuerlogik:
-     targetPower = basePower + m*g*v*grade
-   Wir schreiben per FTMS Control Point (Set Targeted Power opcode 0x05, little-endian 16-bit power)
-   Achtung: einige Geräte benötigen vorher "Start/Set Mode" oder andere opcodes.
----------------------------- */
-function setTrainerTargetPower(targetWatts){
-  if(!ftmControlChar){
-    console.warn('FTMS Control nicht verfügbar — Kann Widerstand nicht setzen.');
-    setStatus('FTMS Control nicht verfügbar');
-    return;
-  }
-  // Opcode 0x05 = Set Targeted Power (per FTMS spec examples) — payload: [opcode, param low, param high]
-  // Build little-endian 16-bit signed (or unsigned) value for watts
-  const op = 0x05;
-  const tw = Math.max(0, Math.round(targetWatts));
-  const buf = new Uint8Array(3);
-  buf[0] = op;
-  buf[1] = tw & 0xff;
-  buf[2] = (tw >> 8) & 0xff;
-  // Write — some control characteristics require "Write Without Response" or might require request/response exchange.
-  ftmControlChar.writeValue(buf).then(()=>{
-    setStatus('Ziel-Watt gesetzt: ' + tw + ' W');
-  }).catch(err=>{
-    console.error('Fehler beim Schreiben ControlPoint:', err);
-    setStatus('Schreibfehler ControlPoint');
-  });
+document.getElementById('connectBtn').addEventListener('click', connectKickr);
+
+function closeEndPopup(){
+  document.getElementById('endPopup').style.display='none';
 }
 
-/* ---------------------------
-   Marker bewegen & live loop
----------------------------- */
-function haversine(lat1,lon1,lat2,lon2){
-  const R = 6371000, toRad = d => d*Math.PI/180;
-  const dLat = toRad(lat2-lat1), dLon = toRad(lon2-lon1);
-  const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
-  return 2*R*Math.asin(Math.sqrt(a));
+function updateStats(dist,time,power,hm, cadence){
+  document.getElementById('dist').textContent=dist.toFixed(2);
+  document.getElementById('time').textContent=time.toFixed(1);
+  document.getElementById('power').textContent=Math.round(power);
+  document.getElementById('hm').textContent=Math.round(hm);
+  document.getElementById('cadence').textContent=Math.round(cadence);
 }
 
-let pausedTimer = null;
-function liveStep(){
-  // only proceed if we have a loaded track and Kickr connected OR we're allowed to simulate movement
-  if(!coords.length) return;
-  // cadence or power should drive progression: require cadence > 5 rpm to move
-  if(cadence > 5){
-    // move forward proportional to cadence: higher cadence -> faster index increment (this is a simple heuristic)
-    const stepBy = Math.max(1, Math.floor(cadence / 20)); // 20rpm -> 1 idx per tick baseline
-    idx = Math.min(idx + stepBy, coords.length-1);
-    // update marker + map view
+// Sim Mode Berechnung (nur die Steigung/Last automatisch, Cursor bewegt sich nur bei Tritt)
+function simulateStep(){
+  if(idx>=coords.length) return;
+  const h1=elevations[idx], h2=elevations[idx+1]||h1;
+  const dist=haversine(coords[idx][0],coords[idx][1],coords[idx+1]?.[0]||coords[idx][0],coords[idx+1]?.[1]||coords[idx][1]);
+  const slope=dist>0 ? ((h2-h1)/dist)*100 : 0;
+  if(h2>h1) totalGain+=(h2-h1);
+  const weight=parseFloat(document.getElementById('weight').value)||75;
+  const v=5.56, g=9.81;
+  const power=Math.max(0,weight*g*v*(slope/100));
+  if(cadence>0){ // Marker bewegt sich nur, wenn getreten wird
     marker.setLatLng(coords[idx]);
     map.setView(coords[idx], map.getZoom(), {animate:true, duration:0.25});
-    // compute distance increment using haversine between previous and current (sum if stepBy>1)
-    let inc = 0;
-    for(let j=Math.max(1, idx-stepBy); j<=idx; j++){
-      inc += haversine(coords[j-1][0],coords[j-1][1],coords[j][0],coords[j][1]);
-    }
-    distance += inc/1000;
-    // slope and elevation gain between current segment
-    const h1 = elevations[Math.max(0, idx-1)] || 0;
-    const h2 = elevations[idx] || h1;
-    const segDist = Math.max(0.001, haversine(coords[Math.max(0, idx-1)][0], coords[Math.max(0, idx-1)][1], coords[idx][0], coords[idx][1]));
-    const slope = segDist>0 ? ((h2 - h1) / segDist) * 100 : 0;
-    if(h2 > h1) totalGain += (h2 - h1);
+    idx++;
+  }
+  const distTravelled=idx>0 ? idx/coords.length*routeLine.getBounds().getNorthEast()[0] :0;
+  const timeElapsed=startTime? (Date.now()-startTime)/60000 :0;
+  updateStats(distTravelled,timeElapsed,power,totalGain,cadence);
 
-    // compute target power: simple physics term + baseline
-    const weight = parseFloat(document.getElementById('weight').value) || 75;
-    const targetExtra = weight * g * defaultSpeed * (slope/100); // Watts to overcome slope at defaultSpeed
-    const baseline = 120; // baseline watts to maintain rolling
-    const targetWatts = baseline + targetExtra;
-    // attempt to set trainer target
-    if(ftmControlChar){
-      setTrainerTargetPower(targetWatts);
-    }
-    // update UI with values (power comes from device if available)
-    document.getElementById('hm').textContent = Math.round(totalGain);
-    document.getElementById('slope').textContent = slope.toFixed(1);
-    document.getElementById('distance').textContent = distance.toFixed(2);
-    // show device-provided power if available else the target
-    document.getElementById('power').textContent = power ? Math.round(power) : Math.round(targetWatts);
-    document.getElementById('cadence').textContent = cadence ? Math.round(cadence) : 0;
-    // update profile cursor
-    drawProfileCursor(idx);
-
-    // reset pause timer if running
-    if(pausedTimer){ clearTimeout(pausedTimer); pausedTimer = null; setStatus('fahrt läuft'); }
-
-    // check for end
-    if(idx >= coords.length-1){
-      // finished track
-      showEndSummary();
-      return;
-    }
-  } else {
-    // cadence <= 5 -> start pause timer (10s) to ask for end
-    if(!pausedTimer){
-      pausedTimer = setTimeout(()=>{ askStop(); }, 10000);
+  if(cadence<5 && idx>0){ // Pause erkennen
+    if(confirm("Beenden?")){
+      document.getElementById('endDist').textContent=distTravelled.toFixed(2);
+      document.getElementById('endTime').textContent=timeElapsed.toFixed(1);
+      document.getElementById('endPower').textContent=Math.round(power);
+      document.getElementById('endHm').textContent=Math.round(totalGain);
+      document.getElementById('endPopup').style.display='block';
+      clearInterval(playInterval);
     }
   }
 }
 
-// ask to stop
-function askStop(){
-  if(cadence > 5) { pausedTimer = null; return; } // resumed
-  if(confirm("Kadenz < 5 — Training pausiert. Möchtest du die Fahrt beenden?")){
-    showEndSummary();
-  } else {
-    pausedTimer = null; // continue monitoring
-  }
+// Start FTMS Simulation (hier nur Beispiel, real würde Kickr Daten liefern)
+function startRide(){
+  startTime=Date.now();
+  playInterval=setInterval(simulateStep, 1000);
 }
 
-// end summary popup
-function showEndSummary(){
-  // populate end popup values
-  document.getElementById('endDist').textContent = distance.toFixed(2);
-  document.getElementById('endHm').textContent = Math.round(totalGain);
-  const totalSec = Math.floor((Date.now() - startTime)/1000);
-  const mm = Math.floor(totalSec/60), ss = totalSec%60;
-  document.getElementById('endTime').textContent = `${mm}:${ss<10? '0'+ss : ss}`;
-  document.getElementById('endCal').textContent = Math.round(distance * 30); // rough kcal
-  document.getElementById('endAvgPower').textContent = Math.round(power || 0);
-  document.getElementById('endPopupOverlay').style.display = 'flex';
-  setStatus('Fahrt beendet');
-}
+// Beispiel Kadenz vom Kickr (hier zufällig)
+setInterval(()=>{cadence=Math.random()*100;},500);
 
-// close popup
-function closeEndPopup(){
-  document.getElementById('endPopupOverlay').style.display = 'none';
-}
-
-/* ---------------------------
-   Read Cycling Power parsing helper (already above)
----------------------------- */
-// (onCyclingPower defined earlier) — if device provides cadence/power these values replace calculated ones
-
-/* ---------------------------
-   Small simulation fallback:
-   If no FTMS/cycling_power available, we still allow user to "pedal" by keyboard for testing:
----------------------------- */
-window.addEventListener('keydown', e=>{
-  if(e.key === 'ArrowRight'){ cadence += 5; setStatus('Test: cadence +' + 5); }
-  if(e.key === 'ArrowLeft'){ cadence = Math.max(0, cadence - 5); setStatus('Test: cadence -' + 5); }
-});
-
-/* ---------------------------
-   Loop
----------------------------- */
-setInterval(liveStep, 1000); // 1s tick for movement
-setInterval(()=>{ drawProfile(); }, 2000);
-
-setStatus('bereit');
-resizeProfile();
 </script>
 </body>
 </html>
