@@ -2,26 +2,28 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<title>GPX Kickr Live Tracker</title>
+<title>Kickr Live Tracker</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
-html,body {margin:0; padding:0; height:100%; overflow:hidden; background:#f0f0f0;}
-#map {position:absolute; top:0; left:0; width:100%; height:100%; z-index:1;}
-#topbar {position:fixed; top:0; left:0; width:100%; background:rgba(0,0,0,0.7); color:#fff; z-index:1000; padding:5px 10px; font-family:sans-serif; font-size:14px; display:flex; flex-direction:column; gap:4px;}
-#topbar span {display:flex; gap:15px;}
-#controls {position:fixed; bottom:110px; left:50%; transform:translateX(-50%); background:rgba(255,255,255,0.85); color:#000; padding:6px 10px; border-radius:10px; display:flex; gap:10px; z-index:1000; font-family:sans-serif; font-size:13px;}
-#controls button, #controls input {border:none; border-radius:6px; padding:5px 8px; cursor:pointer; font-size:13px; background:#eee; color:#000;}
-#connectBtn.connected {background:#1aa01a; color:#fff;}
-#gpxfile {display:none;}
-#popupSummary {position:fixed; top:15%; left:50%; transform:translateX(-50%); width:66%; background:rgba(255,255,255,0.85); color:#000; z-index:2000; padding:20px; border-radius:12px; font-family:sans-serif; font-size:16px; display:none; text-align:center;}
-#elevChart {position:fixed; bottom:0; left:0; width:100%; height:25%; background:rgba(0,0,0,0.2); z-index:900;}
+html,body {margin:0;padding:0;height:100%;overflow:hidden;background:#f0f0f0;}
+#map {position:absolute;top:0;left:0;width:100%;height:100%;z-index:1;}
+#topbar {position:fixed;top:0;left:0;width:100%;background:rgba(0,0,0,0.7);color:#fff;z-index:1000;padding:5px 10px;font-family:sans-serif;font-size:14px;display:flex;flex-direction:column;gap:4px;}
+#topbar span{display:flex;gap:15px;}
+#controls{position:fixed;bottom:110px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,0.85);color:#000;padding:6px 10px;border-radius:10px;display:flex;gap:10px;z-index:1000;font-family:sans-serif;font-size:13px;}
+#controls button,#controls input{border:none;border-radius:6px;padding:5px 8px;cursor:pointer;font-size:13px;background:#eee;color:#000;}
+#connectBtn.connected{background:#1aa01a;color:#fff;}
+#gpxfile{display:none;}
+#popupSummary{position:fixed;top:15%;left:50%;transform:translateX(-50%);width:66%;background:rgba(255,255,255,0.85);color:#000;z-index:2000;padding:20px;border-radius:12px;font-family:sans-serif;font-size:16px;display:none;text-align:center;}
+#elevChart{position:fixed;bottom:0;left:0;width:100%;height:25%;background:rgba(0,0,0,0.2);z-index:900;}
 </style>
 </head>
 <body>
+
 <div id="topbar">
   <span><b>Distanz:</b> <span id="dist">0.00 km</span> <b>Zeit:</b> <span id="time">00:00</span> <b>HM:</b> <span id="hm">0</span></span>
   <span><b>Watt:</b> <span id="power">0</span> <b>Kadenz:</b> <span id="cadence">0</span> <b>Steigung:</b> <span id="slope">0%</span></span>
 </div>
+
 <div id="controls">
   <button id="connectBtn">🔗 KICKR verbinden</button>
   <button id="gpxBtn">📁 GPX laden</button>
@@ -29,104 +31,39 @@ html,body {margin:0; padding:0; height:100%; overflow:hidden; background:#f0f0f0
   Gewicht: <input type="number" id="weight" value="" min="40" max="150" style="width:60px;" placeholder="kg">
   <button id="fullscreenBtn">⛶</button>
 </div>
+
 <div id="map"></div>
 <canvas id="elevChart"></canvas>
 <div id="popupSummary"></div>
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/togeojson/0.16.0/togeojson.min.js"></script>
+
 <script>
 let map = L.map('map').setView([51.5,10],7);
 const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19, attribution:'&copy; OpenStreetMap'}).addTo(map);
 
 let coords=[], elevations=[], routeLine=null, marker=null;
-let totalGain=0, distance_m=0, seconds=0, timerInt=null;
-let i=0, paused=false;
-let follow=true;
-const g=9.81;
+let totalGain=0, distance_m=0, seconds=0;
+let i=0, paused=false, follow=true, rpmTimeout=null;
+let weight=75; // Standardgewicht, überschreibbar
+let kickrConnected=false;
 
-const fileInput = document.getElementById('gpxfile');
-document.getElementById('gpxBtn').addEventListener('click', ()=>{
-  const weight = document.getElementById('weight').value;
-  if(!weight){alert("Bitte Gewicht eingeben!"); return;}
-  fileInput.click();
-});
+const fileInput=document.getElementById('gpxfile');
+const gpxBtn=document.getElementById('gpxBtn');
+const weightInput=document.getElementById('weight');
+const connectBtn=document.getElementById('connectBtn');
+const popupSummary=document.getElementById('popupSummary');
 
-fileInput.addEventListener('change', e=>{
-  const file = e.target.files[0]; if(!file) return;
-  const reader = new FileReader();
-  reader.onload = evt=>{
-    try{
-      const xml = new DOMParser().parseFromString(evt.target.result,"text/xml");
-      const geo = toGeoJSON.gpx(xml);
-      const feat = geo.features.find(f=>f.geometry?.type==="LineString");
-      if(!feat){alert("Keine Strecke gefunden!"); return;}
-      coords = feat.geometry.coordinates.map(c=>[c[1],c[0]]);
-      elevations = feat.geometry.coordinates.map(c=>c[2]||0);
-
-      if(routeLine) map.removeLayer(routeLine);
-      routeLine = L.polyline(coords,{color:'#00aaff',weight:4}).addTo(map);
-      map.fitBounds(routeLine.getBounds());
-      if(marker) map.removeLayer(marker);
-      marker = L.marker(coords[0]).addTo(map);
-
-      totalGain=0; distance_m=0; seconds=0; i=0; paused=false;
-      updateTopBar();
-      drawElevationChart();
-
-      document.getElementById('weight').style.display='none';
-      document.getElementById('gpxBtn').style.display='none';
-      alert("GPX geladen! KICKR-Verbindung wird automatisch gestartet.");
-      connectKickr();
-    }catch(err){console.error(err); alert("Fehler beim Laden der GPX-Datei.");}
-  };
-  reader.readAsText(file);
-});
-
-function startTimer(){
-  if(timerInt) clearInterval(timerInt);
-  timerInt = setInterval(()=>{
-    if(!paused) seconds++;
-    const m=Math.floor(seconds/60), s=seconds%60;
-    document.getElementById('time').textContent=`${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
-  },1000);
-}
-startTimer();
-
-document.getElementById('fullscreenBtn').addEventListener('click', ()=>{
-  const el=document.documentElement;
-  if(!document.fullscreenElement) el.requestFullscreen();
-  else document.exitFullscreen();
-});
-
-let kickrDevice=null, kickrServer=null, powerService=null;
-let currentCadence=0, currentWatt=0;
-async function connectKickr(){
-  const btn = document.getElementById('connectBtn');
-  try{
-    kickrDevice = await navigator.bluetooth.requestDevice({
-      filters:[{namePrefix:'KICKR'}],
-      optionalServices:['cycling_power','fitness_machine']
-    });
-    kickrServer = await kickrDevice.gatt.connect();
-    btn.classList.add('connected'); btn.textContent='✅ KICKR verbunden';
-    powerService = await kickrServer.getPrimaryService('cycling_power');
-    const char = await powerService.getCharacteristic('cycling_power_measurement');
-    char.startNotifications();
-    char.addEventListener('characteristicvaluechanged', e=>{
-      const dv=new DataView(e.target.value.buffer);
-      currentCadence=dv.getUint16(4,true)/2;
-      currentWatt=dv.getInt16(6,true);
-    });
-  }catch(err){alert("KICKR Verbindung fehlgeschlagen: "+err);}
-}
-
-const elevCanvas = document.getElementById('elevChart');
-const elevCtx = elevCanvas.getContext('2d');
+// Höhenprofil Canvas
+const elevCanvas=document.getElementById('elevChart');
+const elevCtx=elevCanvas.getContext('2d');
 
 function drawElevationChart(){
   elevCanvas.width=window.innerWidth;
   elevCanvas.height=window.innerHeight*0.25;
   elevCtx.clearRect(0,0,elevCanvas.width,elevCanvas.height);
+  if(!elevations.length) return;
   elevCtx.strokeStyle='orange'; elevCtx.lineWidth=2;
   elevCtx.beginPath();
   const maxH=Math.max(...elevations), minH=Math.min(...elevations);
@@ -140,71 +77,137 @@ function drawElevationChart(){
 
 function updateElevationCursor(idx){
   drawElevationChart();
+  if(!coords.length) return;
   elevCtx.strokeStyle='red'; elevCtx.lineWidth=2;
-  const x = idx*(elevCanvas.width/coords.length);
-  elevCtx.beginPath();
-  elevCtx.moveTo(x,0);
-  elevCtx.lineTo(x,elevCanvas.height);
-  elevCtx.stroke();
+  const x=idx*(elevCanvas.width/coords.length);
+  elevCtx.beginPath(); elevCtx.moveTo(x,0); elevCtx.lineTo(x,elevCanvas.height); elevCtx.stroke();
 }
 
+// GPX laden
+gpxBtn.addEventListener('click',()=>{
+  if(!weightInput.value){alert("Bitte Gewicht eingeben!"); return;}
+  weight=parseFloat(weightInput.value);
+  fileInput.click();
+});
+
+fileInput.addEventListener('change',e=>{
+  const file=e.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=evt=>{
+    try{
+      const xml=new DOMParser().parseFromString(evt.target.result,"text/xml");
+      const geo=toGeoJSON.gpx(xml);
+      const feat=geo.features.find(f=>f.geometry?.type==="LineString");
+      if(!feat){alert("Keine Strecke gefunden!"); return;}
+      coords=feat.geometry.coordinates.map(c=>[c[1],c[0]]);
+      elevations=feat.geometry.coordinates.map(c=>c[2]||0);
+      if(routeLine) map.removeLayer(routeLine);
+      routeLine=L.polyline(coords,{color:'#00aaff',weight:4}).addTo(map);
+      map.fitBounds(routeLine.getBounds());
+      if(marker) map.removeLayer(marker);
+      marker=L.marker(coords[0]).addTo(map);
+      totalGain=0; distance_m=0; seconds=0; i=0; paused=false;
+      updateTopBar();
+      drawElevationChart();
+      alert("GPX geladen! KICKR-Verbindung wird automatisch gestartet.");
+      connectKickr();
+    }catch(err){console.error(err); alert("Fehler beim Laden der GPX-Datei.");}
+  };
+  reader.readAsText(file);
+});
+
+// KICKR Verbindung
+function connectKickr(){
+  if(!navigator.bluetooth){alert("Web Bluetooth nicht verfügbar!"); return;}
+  navigator.bluetooth.requestDevice({
+    filters:[{namePrefix:"KICKR"}],
+    optionalServices:[0x1826,0x2a63] // z.B. Cycling Power
+  }).then(device=>{
+    kickrConnected=true;
+    connectBtn.classList.add("connected");
+    connectBtn.textContent="KICKR verbunden";
+    // später Web Bluetooth Characteristics lesen/schreiben
+  }).catch(err=>{console.error(err); alert("Kickr Verbindung fehlgeschlagen.");});
+}
+
+// Topbar Update
 function updateTopBar(){
   document.getElementById('dist').textContent=(distance_m/1000).toFixed(2);
   document.getElementById('hm').textContent=Math.round(totalGain);
 }
 
-function haversine(lat1,lon1,lat2,lon2){
-  const R=6371000, toRad=d=>d*Math.PI/180;
-  const dLat=toRad(lat2-lat1), dLon=toRad(lon2-lon1);
-  const a=Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
-  return 2*R*Math.asin(Math.sqrt(a));
-}
+// Vollbild
+document.getElementById('fullscreenBtn').addEventListener('click',()=>{
+  const el=document.documentElement;
+  if(!document.fullscreenElement) el.requestFullscreen();
+  else document.exitFullscreen();
+});
 
+// Live Marker Bewegung
+let currentCadence=0, currentWatt=0;
 setInterval(()=>{
-  if(!coords.length || !marker) return;
+  if(!coords.length || !marker || !kickrConnected) return;
   if(currentCadence>5){
-    const prev = coords[i], curr = coords[i+1]||coords[i];
+    const prev=coords[i], curr=coords[i+1]||coords[i];
     const dist=haversine(prev[0],prev[1],curr[0],curr[1]);
     distance_m+=dist;
     const h1=elevations[i], h2=elevations[i+1]||h1;
     if(h2>h1) totalGain += (h2-h1);
     marker.setLatLng(curr);
     if(follow) map.setView(curr);
-    i=Math.min(i+1, coords.length-1);
+    i=Math.min(i+1,coords.length-1);
     updateElevationCursor(i);
+    updateTopBar();
   }
   document.getElementById('cadence').textContent=Math.round(currentCadence);
   document.getElementById('power').textContent=Math.round(currentWatt);
 },500);
 
-// Pause nach 10s <5 RPM
-let pauseCounter=0;
-setInterval(()=>{
-  if(currentCadence<5 && !paused && coords.length){
-    pauseCounter++;
-    if(pauseCounter>20){
-      paused=true; pauseCounter=0;
-      if(confirm("Pause erkannt. Fahrt beenden?")){
+// RPM Pause Abfrage
+function rpmCheck(){
+  if(currentCadence<5){
+    if(rpmTimeout) clearTimeout(rpmTimeout);
+    rpmTimeout=setTimeout(()=>{
+      paused=true;
+      const cont=confirm("Pause erkannt! Möchten Sie beenden?");
+      if(cont){
         showSummary();
-        paused=false; i=0; distance_m=0; totalGain=0; seconds=0;
-        updateTopBar();
-      }else paused=false;
-    }
-  }else pauseCounter=0;
-},500);
+      }else{
+        paused=false;
+      }
+    },10000);
+  }
+}
 
 function showSummary(){
-  const popup = document.getElementById('popupSummary');
-  popup.style.display='block';
-  popup.innerHTML=`<h2>Fahrt beendet</h2>
-  <p>Distanz: ${(distance_m/1000).toFixed(2)} km<br>
-  Zeit: ${Math.floor(seconds/60)}:${seconds%60}<br>
-  Höhenmeter: ${Math.round(totalGain)} m<br>
-  Watt: ${Math.round(currentWatt)} W<br>
-  Kadenz: ${Math.round(currentCadence)}</p>
-  <button onclick="popup.style.display='none';">Schließen</button>`;
+  paused=true;
+  popupSummary.style.display='block';
+  popupSummary.innerHTML=`<h2>Zusammenfassung</h2>
+  Distanz: ${(distance_m/1000).toFixed(2)} km<br>
+  Dauer: ${Math.floor(seconds/60)}:${seconds%60} min<br>
+  HM: ${Math.round(totalGain)}<br>
+  Watt: ${Math.round(currentWatt)}<br>
+  Kadenz: ${Math.round(currentCadence)}<br>
+  <button onclick="popupSummary.style.display='none';paused=false;">Schließen</button>`;
 }
-window.addEventListener('resize', ()=>{drawElevationChart();});
+
+// Dummy Sim Cadence/Watt (später Web Bluetooth Live)
+setInterval(()=>{
+  if(paused) return;
+  currentCadence=Math.random()*90+30;
+  currentWatt=Math.random()*250+50;
+  seconds++;
+  rpmCheck();
+},1000);
+
+function haversine(lat1,lon1,lat2,lon2){
+  const R=6371000,toRad=d=>d*Math.PI/180;
+  const dLat=toRad(lat2-lat1), dLon=toRad(lon2-lon1);
+  const a=Math.sin(dLat/2)**2+Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
+  return 2*R*Math.asin(Math.sqrt(a));
+}
+
+window.addEventListener('resize',()=>{drawElevationChart();});
 </script>
 </body>
 </html>
