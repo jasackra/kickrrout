@@ -37,7 +37,6 @@ html,body {margin:0;padding:0;height:100%;overflow:hidden;background:#f0f0f0;}
 
 /* Popup Zusammenfassung */
 #popupSummary{position:fixed;top:15%;left:50%;transform:translateX(-50%);width:66%;background:rgba(255,255,255,0.95);color:#000;z-index:2000;padding:20px;border-radius:12px;font-family:sans-serif;font-size:16px;display:none;text-align:center;}
-
 </style>
 </head>
 <body>
@@ -68,15 +67,15 @@ const osm=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZ
 
 let coords=[], elevations=[], routeLine=null, marker=null;
 let totalGain=0, distance_m=0, seconds=0;
-let i=0, paused=false, follow=true, rpmTimeout=null;
+let i=0, paused=false, follow=true;
 let weight=75, kickrConnected=false;
+let currentCadence=0, currentWatt=0, rpmTimeout=null;
 
 const fileInput=document.getElementById('gpxfile');
 const gpxBtn=document.getElementById('gpxBtn');
 const weightInput=document.getElementById('weight');
 const connectBtn=document.getElementById('connectBtn');
 const popupSummary=document.getElementById('popupSummary');
-
 const elevCanvas=document.getElementById('elevChart');
 const elevCtx=elevCanvas.getContext('2d');
 
@@ -135,7 +134,6 @@ fileInput.addEventListener('change',e=>{
   reader.readAsText(file);
 });
 
-// KICKR Verbindung nur über Button
 connectBtn.addEventListener('click',()=>{
   if(!navigator.bluetooth){alert("Web Bluetooth nicht verfügbar!"); return;}
   navigator.bluetooth.requestDevice({
@@ -145,41 +143,22 @@ connectBtn.addEventListener('click',()=>{
     kickrConnected=true;
     connectBtn.classList.add("connected");
     connectBtn.textContent="KICKR verbunden";
+    // Hier müsste man dann Notifications abonnieren, um echte RPM/Watt zu erhalten
   }).catch(err=>{console.error(err); alert("Kickr Verbindung fehlgeschlagen.");});
 });
 
-// Topbar Update
 function updateTopBar(){
   document.getElementById('dist').textContent=(distance_m/1000).toFixed(2);
   document.getElementById('hm').textContent=Math.round(totalGain);
+  document.getElementById('cadence').textContent=Math.round(currentCadence);
+  document.getElementById('power').textContent=Math.round(currentWatt);
 }
 
-// Vollbild
 document.getElementById('fullscreenBtn').addEventListener('click',()=>{
   const el=document.documentElement;
   if(!document.fullscreenElement) el.requestFullscreen();
   else document.exitFullscreen();
 });
-
-// Live Marker Bewegung
-let currentCadence=0, currentWatt=0;
-setInterval(()=>{
-  if(!coords.length || !marker || !kickrConnected) return;
-  if(currentCadence>5){
-    const prev=coords[i], curr=coords[i+1]||coords[i];
-    const dist=haversine(prev[0],prev[1],curr[0],curr[1]);
-    distance_m+=dist;
-    const h1=elevations[i], h2=elevations[i+1]||h1;
-    if(h2>h1) totalGain += (h2-h1);
-    marker.setLatLng(curr);
-    if(follow) map.setView(curr);
-    i=Math.min(i+1,coords.length-1);
-    updateElevationCursor(i);
-    updateTopBar();
-  }
-  document.getElementById('cadence').textContent=Math.round(currentCadence);
-  document.getElementById('power').textContent=Math.round(currentWatt);
-},500);
 
 function rpmCheck(){
   if(currentCadence<5){
@@ -204,15 +183,6 @@ function showSummary(){
   <button onclick="popupSummary.style.display='none';paused=false;">Schließen</button>`;
 }
 
-// Dummy Sim Cadence/Watt
-setInterval(()=>{
-  if(paused) return;
-  currentCadence=Math.random()*90+30;
-  currentWatt=Math.random()*250+50;
-  seconds++;
-  rpmCheck();
-},1000);
-
 function haversine(lat1,lon1,lat2,lon2){
   const R=6371000,toRad=d=>d*Math.PI/180;
   const dLat=toRad(lat2-lat1), dLon=toRad(lon2-lon1);
@@ -220,6 +190,24 @@ function haversine(lat1,lon1,lat2,lon2){
   return 2*R*Math.asin(Math.sqrt(a));
 }
 
+// Hier Marker live bewegen, sobald echte RPM/Watt von KICKR kommen
+function moveMarkerLive(){
+  if(!kickrConnected || !coords.length || paused) return;
+  if(currentCadence>5){
+    const prev=coords[i], curr=coords[i+1]||coords[i];
+    const dist=haversine(prev[0],prev[1],curr[0],curr[1]);
+    distance_m+=dist;
+    const h1=elevations[i], h2=elevations[i+1]||h1;
+    if(h2>h1) totalGain+=(h2-h1);
+    marker.setLatLng(curr);
+    if(follow) map.setView(curr);
+    i=Math.min(i+1,coords.length-1);
+    updateElevationCursor(i);
+    updateTopBar();
+  }
+}
+
+// Fenstergröße anpassen
 window.addEventListener('resize',()=>{map.invalidateSize(); drawElevationChart();});
 </script>
 </body>
