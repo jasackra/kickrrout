@@ -9,12 +9,12 @@ html,body {margin:0;padding:0;height:100%;overflow:hidden;background:#f0f0f0;}
 #map {position:absolute;top:0;left:0;width:100%;height:100%;z-index:1;}
 #topbar {position:fixed;top:0;left:0;width:100%;background:rgba(0,0,0,0.7);color:#fff;z-index:1000;padding:5px 10px;font-family:sans-serif;font-size:14px;display:flex;flex-direction:column;gap:4px;}
 #topbar span{display:flex;gap:15px;}
-#controls{position:fixed;bottom:110px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,0.85);color:#000;padding:6px 10px;border-radius:10px;display:flex;gap:10px;z-index:1000;font-family:sans-serif;font-size:13px;}
+#controls{position:fixed;top:10px;left:10px;background:#fff;color:#000;padding:10px;border-radius:10px;display:flex;flex-direction:column;gap:6px;z-index:1000;font-family:sans-serif;font-size:13px;box-shadow:0 0 6px rgba(0,0,0,0.3);}
 #controls button,#controls input{border:none;border-radius:6px;padding:5px 8px;cursor:pointer;font-size:13px;background:#eee;color:#000;}
 #connectBtn.connected{background:#1aa01a;color:#fff;}
 #gpxfile{display:none;}
-#popupSummary{position:fixed;top:15%;left:50%;transform:translateX(-50%);width:66%;background:rgba(255,255,255,0.85);color:#000;z-index:2000;padding:20px;border-radius:12px;font-family:sans-serif;font-size:16px;display:none;text-align:center;}
-#elevChart{position:fixed;bottom:0;left:0;width:100%;height:25%;background:rgba(0,0,0,0.2);z-index:900;}
+#popupSummary{position:fixed;top:15%;left:50%;transform:translateX(-50%);width:66%;background:rgba(255,255,255,0.95);color:#000;z-index:2000;padding:20px;border-radius:12px;font-family:sans-serif;font-size:16px;display:none;text-align:center;}
+#elevChart{position:fixed;bottom:0;left:0;width:100%;height:15%;background:#fff;z-index:900;border-top:2px solid #000;}
 </style>
 </head>
 <body>
@@ -40,14 +40,13 @@ html,body {margin:0;padding:0;height:100%;overflow:hidden;background:#f0f0f0;}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/togeojson/0.16.0/togeojson.min.js"></script>
 
 <script>
-let map = L.map('map').setView([51.5,10],7);
-const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19, attribution:'&copy; OpenStreetMap'}).addTo(map);
+let map=L.map('map').setView([51.5,10],7);
+const osm=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap'}).addTo(map);
 
 let coords=[], elevations=[], routeLine=null, marker=null;
 let totalGain=0, distance_m=0, seconds=0;
 let i=0, paused=false, follow=true, rpmTimeout=null;
-let weight=75; // Standardgewicht, überschreibbar
-let kickrConnected=false;
+let weight=75, kickrConnected=false;
 
 const fileInput=document.getElementById('gpxfile');
 const gpxBtn=document.getElementById('gpxBtn');
@@ -55,13 +54,12 @@ const weightInput=document.getElementById('weight');
 const connectBtn=document.getElementById('connectBtn');
 const popupSummary=document.getElementById('popupSummary');
 
-// Höhenprofil Canvas
 const elevCanvas=document.getElementById('elevChart');
 const elevCtx=elevCanvas.getContext('2d');
 
 function drawElevationChart(){
   elevCanvas.width=window.innerWidth;
-  elevCanvas.height=window.innerHeight*0.25;
+  elevCanvas.height=window.innerHeight*0.15;
   elevCtx.clearRect(0,0,elevCanvas.width,elevCanvas.height);
   if(!elevations.length) return;
   elevCtx.strokeStyle='orange'; elevCtx.lineWidth=2;
@@ -83,7 +81,6 @@ function updateElevationCursor(idx){
   elevCtx.beginPath(); elevCtx.moveTo(x,0); elevCtx.lineTo(x,elevCanvas.height); elevCtx.stroke();
 }
 
-// GPX laden
 gpxBtn.addEventListener('click',()=>{
   if(!weightInput.value){alert("Bitte Gewicht eingeben!"); return;}
   weight=parseFloat(weightInput.value);
@@ -109,26 +106,24 @@ fileInput.addEventListener('change',e=>{
       totalGain=0; distance_m=0; seconds=0; i=0; paused=false;
       updateTopBar();
       drawElevationChart();
-      alert("GPX geladen! KICKR-Verbindung wird automatisch gestartet.");
-      connectKickr();
+      alert("GPX geladen! Bitte KICKR verbinden.");
     }catch(err){console.error(err); alert("Fehler beim Laden der GPX-Datei.");}
   };
   reader.readAsText(file);
 });
 
-// KICKR Verbindung
-function connectKickr(){
+// KICKR Verbindung nur über Button
+connectBtn.addEventListener('click',()=>{
   if(!navigator.bluetooth){alert("Web Bluetooth nicht verfügbar!"); return;}
   navigator.bluetooth.requestDevice({
     filters:[{namePrefix:"KICKR"}],
-    optionalServices:[0x1826,0x2a63] // z.B. Cycling Power
+    optionalServices:[0x1826,0x2a63]
   }).then(device=>{
     kickrConnected=true;
     connectBtn.classList.add("connected");
     connectBtn.textContent="KICKR verbunden";
-    // später Web Bluetooth Characteristics lesen/schreiben
   }).catch(err=>{console.error(err); alert("Kickr Verbindung fehlgeschlagen.");});
-}
+});
 
 // Topbar Update
 function updateTopBar(){
@@ -163,18 +158,13 @@ setInterval(()=>{
   document.getElementById('power').textContent=Math.round(currentWatt);
 },500);
 
-// RPM Pause Abfrage
 function rpmCheck(){
   if(currentCadence<5){
     if(rpmTimeout) clearTimeout(rpmTimeout);
     rpmTimeout=setTimeout(()=>{
       paused=true;
       const cont=confirm("Pause erkannt! Möchten Sie beenden?");
-      if(cont){
-        showSummary();
-      }else{
-        paused=false;
-      }
+      if(cont){showSummary();}else{paused=false;}
     },10000);
   }
 }
@@ -191,7 +181,7 @@ function showSummary(){
   <button onclick="popupSummary.style.display='none';paused=false;">Schließen</button>`;
 }
 
-// Dummy Sim Cadence/Watt (später Web Bluetooth Live)
+// Dummy Sim Cadence/Watt
 setInterval(()=>{
   if(paused) return;
   currentCadence=Math.random()*90+30;
@@ -207,7 +197,7 @@ function haversine(lat1,lon1,lat2,lon2){
   return 2*R*Math.asin(Math.sqrt(a));
 }
 
-window.addEventListener('resize',()=>{drawElevationChart();});
+window.addEventListener('resize',()=>{map.invalidateSize(); drawElevationChart();});
 </script>
 </body>
 </html>
