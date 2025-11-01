@@ -7,22 +7,40 @@
 <style>
 html,body {margin:0;padding:0;height:100%;overflow:hidden;background:#f0f0f0;}
 #map {position:absolute;top:0;left:0;width:100%;height:100%;z-index:1;}
-#topbar {position:fixed;top:0;left:0;width:100%;background:rgba(0,0,0,0.7);color:#fff;z-index:1000;padding:5px 10px;font-family:sans-serif;font-size:14px;display:flex;flex-direction:column;gap:4px;}
-#topbar span{display:flex;gap:15px;}
-#controls{position:fixed;top:10px;left:10px;background:#fff;color:#000;padding:10px;border-radius:10px;display:flex;flex-direction:column;gap:6px;z-index:1000;font-family:sans-serif;font-size:13px;box-shadow:0 0 6px rgba(0,0,0,0.3);}
+
+/* Pflichtfeld */
+#controls{
+  position:fixed;top:10px;left:10px;
+  background:#fff;padding:10px;border-radius:12px;
+  display:flex;flex-direction:column;gap:6px;
+  z-index:1000;font-family:sans-serif;font-size:13px;
+  box-shadow:0 4px 12px rgba(0,0,0,0.25);
+}
+
+/* Buttons & Inputs */
 #controls button,#controls input{border:none;border-radius:6px;padding:5px 8px;cursor:pointer;font-size:13px;background:#eee;color:#000;}
 #connectBtn.connected{background:#1aa01a;color:#fff;}
 #gpxfile{display:none;}
-#popupSummary{position:fixed;top:15%;left:50%;transform:translateX(-50%);width:66%;background:rgba(255,255,255,0.95);color:#000;z-index:2000;padding:20px;border-radius:12px;font-family:sans-serif;font-size:16px;display:none;text-align:center;}
+
+/* Infobalken neben Pflichtfeld */
+#infobar{
+  position:fixed;top:10px;left:220px; /* neben Pflichtfeld */
+  background:linear-gradient(135deg,#1e3c72,#2a5298);
+  color:#fff;padding:12px 18px;border-radius:12px;
+  z-index:1000;font-family:sans-serif;font-size:14px;
+  box-shadow:0 6px 16px rgba(0,0,0,0.35);
+}
+#infobar span{display:flex;gap:15px;align-items:center;}
+
+/* Höhenprofil */
 #elevChart{position:fixed;bottom:0;left:0;width:100%;height:15%;background:#fff;z-index:900;border-top:2px solid #000;}
+
+/* Popup Zusammenfassung */
+#popupSummary{position:fixed;top:15%;left:50%;transform:translateX(-50%);width:66%;background:rgba(255,255,255,0.95);color:#000;z-index:2000;padding:20px;border-radius:12px;font-family:sans-serif;font-size:16px;display:none;text-align:center;}
+
 </style>
 </head>
 <body>
-
-<div id="topbar">
-  <span><b>Distanz:</b> <span id="dist">0.00 km</span> <b>Zeit:</b> <span id="time">00:00</span> <b>HM:</b> <span id="hm">0</span></span>
-  <span><b>Watt:</b> <span id="power">0</span> <b>Kadenz:</b> <span id="cadence">0</span> <b>Steigung:</b> <span id="slope">0%</span></span>
-</div>
 
 <div id="controls">
   <button id="connectBtn">🔗 KICKR verbinden</button>
@@ -30,6 +48,11 @@ html,body {margin:0;padding:0;height:100%;overflow:hidden;background:#f0f0f0;}
   <input type="file" id="gpxfile" accept=".gpx">
   Gewicht: <input type="number" id="weight" value="" min="40" max="150" style="width:60px;" placeholder="kg">
   <button id="fullscreenBtn">⛶</button>
+</div>
+
+<div id="infobar">
+  <span><b>Distanz:</b> <span id="dist">0.00 km</span> <b>Zeit:</b> <span id="time">00:00</span> <b>HM:</b> <span id="hm">0</span></span>
+  <span><b>Watt:</b> <span id="power">0</span> <b>Kadenz:</b> <span id="cadence">0</span> <b>Steigung:</b> <span id="slope">0%</span></span>
 </div>
 
 <div id="map"></div>
