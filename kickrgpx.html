@@ -2,165 +2,202 @@
 <html lang="de">
 <head>
 <meta charset="utf-8"/>
-<title>Live Kickr GPX App</title>
+<title>GPX Tracker – Kickr Live</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
-  html, body {height:100%; margin:0; padding:0; overflow:hidden; font-family:sans-serif;}
-  #controls {
-    position:absolute; top:10px; left:10px; z-index:1000;
-    background:rgba(255,255,255,0.95); padding:12px; border-radius:10px;
-  }
-  #controls input, #controls button {display:block; margin-top:6px; font-size:16px;}
-  #infoBar {
-    position:absolute; top:10px; right:10px; z-index:1000;
-    width:220px; background:rgba(0,0,0,0.8); color:#fff;
-    padding:10px; border-radius:10px; font-size:14px;
-    line-height:1.4em;
-    font-weight:bold;
-  }
-  #heightChart {
-    position:absolute; bottom:10px; left:10px; right:10px; height:120px; z-index:1000;
-    background:#eee; border-radius:8px; padding:4px;
-  }
-  #fullscreenBtn {
-    margin-top:6px; padding:6px 10px; border:none; border-radius:6px; background:#444; color:#fff; cursor:pointer; font-weight:bold;
-  }
-  #map {width:100%; height:100%;}
-  #endPopup {
-    position:absolute; top:10%; left:50%; transform:translateX(-50%);
-    width:66%; height:66%; background:rgba(255,255,255,0.9);
-    border-radius:12px; z-index:2000; display:none;
-    padding:20px; text-align:center;
-  }
-  #endPopup img {max-width:100%; border-radius:10px; margin-bottom:10px;}
+html, body {height:100%; margin:0; padding:0; overflow:hidden; font-family:sans-serif;}
+#controls {
+  position:absolute; top:10px; left:10px; z-index:1000;
+  background:rgba(255,255,255,0.95); padding:10px; border-radius:8px;
+  display:flex; flex-direction:column; gap:6px; width:250px;
+}
+#controls input, #controls button {margin-top:4px; padding:6px;}
+#fullscreenBtn {
+  background:#444; color:#fff; border:none; border-radius:6px; cursor:pointer; font-weight:bold;
+}
+#stats {
+  position:absolute; top:10px; left:270px; z-index:1000;
+  background:rgba(0,0,0,0.7); color:#fff; padding:8px 12px; border-radius:8px;
+  display:flex; flex-direction:column; gap:4px; font-size:14px;
+}
+#map {width:100%; height:100%;}
+#elevation {
+  position:absolute; bottom:10px; left:10px; width:98%; height:120px; z-index:1000;
+  background:#ddd; border-radius:6px; padding:4px;
+}
+#popupEnd {
+  position:absolute; top:15%; left:15%; width:70%; height:70%; background:rgba(255,255,255,0.95);
+  border-radius:12px; display:none; z-index:2000; padding:20px; overflow:auto;
+}
+#popupEnd img {width:100%; max-height:200px; object-fit:cover; border-radius:6px; margin-bottom:10px;}
 </style>
 </head>
 <body>
-
 <div id="controls">
-  GPX Datei auswählen: <input type="file" id="gpxfile" accept=".gpx"/><br>
-  Fahrergewicht (kg): <input type="number" id="weight" value="75" min="30" max="150"/><br>
-  <button id="connectBtn">Kickr verbinden</button><br>
+  <label>GPX-Datei:</label>
+  <input type="file" id="gpxfile" accept=".gpx"/>
+  <label>Fahrergewicht (kg):</label>
+  <input type="number" id="weight" value="75" min="30" max="150"/>
+  <button id="connectKickr">Kickr verbinden</button>
   <button id="fullscreenBtn">⛶ Vollbild</button>
 </div>
 
-<div id="infoBar">
-  Distanz: <span id="dist">0</span> km<br>
-  Dauer: <span id="time">0</span> min<br>
-  Watt: <span id="power">0</span> W<br>
-  Kadenz: <span id="cadence">0</span> rpm<br>
-  Höhenmeter: <span id="hm">0</span> m
+<div id="stats">
+  <div>Höhenmeter: <span id="hm">0</span> m</div>
+  <div>Steigung: <span id="slope">0</span> %</div>
+  <div>Leistung: <span id="power">0</span> W</div>
+  <div>Kadenz: <span id="cadence">0</span> rpm</div>
+  <div>Distanz: <span id="distance">0</span> km</div>
+  <div>Zeit: <span id="duration">0:00</span></div>
+  <div>Kalorien: <span id="calories">0</span> kcal</div>
 </div>
 
-<div id="heightChart"></div>
 <div id="map"></div>
-
-<div id="endPopup">
+<canvas id="elevation"></canvas>
+<div id="popupEnd">
   <img src="kickr_gebirge.jpg" alt="Kickr im Gebirge"/>
-  <h2>Fahrt beendet</h2>
-  <p>Distanz: <span id="endDist">0</span> km</p>
-  <p>Dauer: <span id="endTime">0</span> min</p>
-  <p>Höhenmeter: <span id="endHm">0</span> m</p>
-  <p>Watt: <span id="endPower">0</span> W</p>
-  <button onclick="closeEndPopup()">Schließen</button>
+  <div id="summary"></div>
+  <button onclick="closePopup()">Schließen</button>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/togeojson/0.16.0/togeojson.min.js"></script>
+
 <script>
 let map = L.map('map').setView([51.5,10],6);
-const osmLight = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
-let routeLine=null, marker=null, coords=[], elevations=[], idx=0, totalGain=0;
-let playInterval=null, startTime=null;
-let cadence=0;
+let osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+let routeLine=null, marker=null, coords=[], elevations=[], totalGain=0, idx=0, distance=0, startTime=null;
+let g=9.81, v=5.56, calories=0, cadence=0;
+let simMode = true;
+let kickrConnected=false;
 
-function haversine(lat1,lon1,lat2,lon2){const R=6371000, toRad=d=>d*Math.PI/180;const dLat=toRad(lat2-lat1), dLon=toRad(lon2-lon1);const a=Math.sin(dLat/2)**2+Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;return 2*R*Math.asin(Math.sqrt(a));}
+const ctx = document.getElementById('elevation').getContext('2d');
+
+document.getElementById('fullscreenBtn').addEventListener('click', () => {
+  const el = document.documentElement;
+  if(!document.fullscreenElement) el.requestFullscreen();
+  else document.exitFullscreen();
+});
 
 document.getElementById('gpxfile').addEventListener('change', e=>{
   const file=e.target.files[0]; if(!file) return;
   const reader=new FileReader();
   reader.onload=evt=>{
-    const gpxDoc=new DOMParser().parseFromString(evt.target.result,"application/xml");
-    const geo=toGeoJSON.gpx(gpxDoc);
-    const feature=geo.features.find(f=>f.geometry?.type==="LineString");
-    if(!feature){alert("Keine Trackdaten gefunden."); return;}
-    coords=feature.geometry.coordinates.map(c=>[c[1],c[0]]);
-    elevations=feature.geometry.coordinates.map(c=>c[2]||0);
-    totalGain=0; idx=0;
-    if(routeLine) map.removeLayer(routeLine);
-    routeLine=L.polyline(coords,{color:'#00aaff',weight:4}).addTo(map);
-    map.fitBounds(routeLine.getBounds());
-    if(marker) map.removeLayer(marker);
-    marker=L.marker(coords[0]).addTo(map);
+    try{
+      const gpxDoc = new DOMParser().parseFromString(evt.target.result,"application/xml");
+      const geo = toGeoJSON.gpx(gpxDoc);
+      const feature = geo.features.find(f=>f.geometry?.type==="LineString");
+      if(!feature){alert("Keine Trackdaten."); return;}
+      coords = feature.geometry.coordinates.map(c=>[c[1],c[0]]);
+      elevations = feature.geometry.coordinates.map(c=>c[2]||0);
+      totalGain=0; idx=0; distance=0; startTime=Date.now(); calories=0;
+      if(routeLine) map.removeLayer(routeLine);
+      routeLine = L.polyline(coords,{color:'#00aaff',weight:4}).addTo(map);
+      map.fitBounds(routeLine.getBounds());
+      if(marker) map.removeLayer(marker);
+      marker = L.marker(coords[0]).addTo(map);
+      updateStats(0,0);
+      drawElevation();
+    }catch(err){console.error(err); alert("Fehler beim Laden.");}
   };
   reader.readAsText(file);
 });
 
-document.getElementById('fullscreenBtn').addEventListener('click', ()=>{
-  const el=document.getElementById('map');
-  if(!document.fullscreenElement){if(el.requestFullscreen) el.requestFullscreen();}
-  else{if(document.exitFullscreen) document.exitFullscreen();}
+document.getElementById('connectKickr').addEventListener('click', async ()=>{
+  try{
+    // Kickr Bluetooth-Verbindung
+    const device = await navigator.bluetooth.requestDevice({filters:[{namePrefix:"KICKR"}], optionalServices:['fitness_machine']});
+    const server = await device.gatt.connect();
+    kickrConnected = true;
+    alert("Kickr verbunden!");
+  }catch(err){console.error(err); alert("Kickr Verbindung fehlgeschlagen.");}
 });
 
-function connectKickr(){
-  // Hier würde man die FTMS/Bluetooth Verbindung starten
-  alert("Kickr verbinden (Simulation hier nur)");
+function haversine(lat1,lon1,lat2,lon2){
+  const R=6371000, toRad=d=>d*Math.PI/180;
+  const dLat=toRad(lat2-lat1), dLon=toRad(lon2-lon1);
+  const a=Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
+  return 2*R*Math.asin(Math.sqrt(a));
 }
 
-document.getElementById('connectBtn').addEventListener('click', connectKickr);
-
-function closeEndPopup(){
-  document.getElementById('endPopup').style.display='none';
+function updateStats(i, dist){
+  const h1 = elevations[i], h2 = elevations[i+1]||h1;
+  const slope = dist>0 ? ((h2-h1)/dist)*100 : 0;
+  if(h2>h1) totalGain += (h2-h1);
+  const weight = parseFloat(document.getElementById('weight').value) || 75;
+  const power = Math.max(0, weight*g*v*(slope/100));
+  distance += dist;
+  const duration = Math.floor((Date.now()-startTime)/1000);
+  const cal = Math.round(calories + power*duration/4184);
+  document.getElementById('hm').textContent=totalGain.toFixed(0);
+  document.getElementById('slope').textContent=slope.toFixed(1);
+  document.getElementById('power').textContent=power.toFixed(0);
+  document.getElementById('cadence').textContent=cadence.toFixed(0);
+  document.getElementById('distance').textContent=(distance/1000).toFixed(2);
+  document.getElementById('duration').textContent = Math.floor(duration/60)+":"+("0"+duration%60).slice(-2);
+  document.getElementById('calories').textContent=cal;
 }
 
-function updateStats(dist,time,power,hm, cadence){
-  document.getElementById('dist').textContent=dist.toFixed(2);
-  document.getElementById('time').textContent=time.toFixed(1);
-  document.getElementById('power').textContent=Math.round(power);
-  document.getElementById('hm').textContent=Math.round(hm);
-  document.getElementById('cadence').textContent=Math.round(cadence);
+function drawElevation(){
+  if(!coords.length) return;
+  const width = ctx.canvas.width, height = ctx.canvas.height;
+  ctx.clearRect(0,0,width,height);
+  ctx.fillStyle="#ccc"; ctx.fillRect(0,0,width,height);
+  const maxH=Math.max(...elevations), minH=Math.min(...elevations);
+  ctx.strokeStyle="#00aaff"; ctx.lineWidth=2; ctx.beginPath();
+  elevations.forEach((h,i)=>{
+    const x = i*(width/elevations.length);
+    const y = height - ((h-minH)/(maxH-minH))*height;
+    if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+  });
+  ctx.stroke();
 }
 
-// Sim Mode Berechnung (nur die Steigung/Last automatisch, Cursor bewegt sich nur bei Tritt)
-function simulateStep(){
-  if(idx>=coords.length) return;
-  const h1=elevations[idx], h2=elevations[idx+1]||h1;
-  const dist=haversine(coords[idx][0],coords[idx][1],coords[idx+1]?.[0]||coords[idx][0],coords[idx+1]?.[1]||coords[idx][1]);
-  const slope=dist>0 ? ((h2-h1)/dist)*100 : 0;
-  if(h2>h1) totalGain+=(h2-h1);
-  const weight=parseFloat(document.getElementById('weight').value)||75;
-  const v=5.56, g=9.81;
-  const power=Math.max(0,weight*g*v*(slope/100));
-  if(cadence>0){ // Marker bewegt sich nur, wenn getreten wird
-    marker.setLatLng(coords[idx]);
-    map.setView(coords[idx], map.getZoom(), {animate:true, duration:0.25});
-    idx++;
-  }
-  const distTravelled=idx>0 ? idx/coords.length*routeLine.getBounds().getNorthEast()[0] :0;
-  const timeElapsed=startTime? (Date.now()-startTime)/60000 :0;
-  updateStats(distTravelled,timeElapsed,power,totalGain,cadence);
-
-  if(cadence<5 && idx>0){ // Pause erkennen
-    if(confirm("Beenden?")){
-      document.getElementById('endDist').textContent=distTravelled.toFixed(2);
-      document.getElementById('endTime').textContent=timeElapsed.toFixed(1);
-      document.getElementById('endPower').textContent=Math.round(power);
-      document.getElementById('endHm').textContent=Math.round(totalGain);
-      document.getElementById('endPopup').style.display='block';
-      clearInterval(playInterval);
-    }
-  }
+// Sim Mode: Cursor bewegt sich nur beim Treten
+function updateMarkerLive(){
+  if(!coords.length || !kickrConnected) return;
+  const i = idx; 
+  if(!coords[i]) return;
+  marker.setLatLng(coords[i]);
+  map.setView(coords[i], map.getZoom(), {animate:true, duration:0.1});
+  const dist = haversine(coords[i][0],coords[i][1], coords[i+1]?.[0]||coords[i][0], coords[i+1]?.[1]||coords[i][1]);
+  updateStats(i, dist);
+  idx = Math.min(idx+1, coords.length-1);
+  drawElevationCursor(idx);
 }
 
-// Start FTMS Simulation (hier nur Beispiel, real würde Kickr Daten liefern)
-function startRide(){
-  startTime=Date.now();
-  playInterval=setInterval(simulateStep, 1000);
+// Höhenprofil-Cursor
+function drawElevationCursor(index){
+  if(!coords.length) return;
+  const width = ctx.canvas.width, height = ctx.canvas.height;
+  const x = index*(width/elevations.length);
+  ctx.strokeStyle="red"; ctx.lineWidth=2;
+  ctx.beginPath();
+  ctx.moveTo(x,0);
+  ctx.lineTo(x,height);
+  ctx.stroke();
 }
 
-// Beispiel Kadenz vom Kickr (hier zufällig)
-setInterval(()=>{cadence=Math.random()*100;},500);
+function showEndPopup(){
+  document.getElementById('summary').innerHTML = `
+    <h2>Fahrt beendet</h2>
+    <p>Distanz: ${document.getElementById('distance').textContent} km</p>
+    <p>Höhenmeter: ${document.getElementById('hm').textContent} m</p>
+    <p>Zeit: ${document.getElementById('duration').textContent}</p>
+    <p>Kalorien: ${document.getElementById('calories').textContent} kcal</p>
+  `;
+  document.getElementById('popupEnd').style.display="block";
+}
 
+function closePopup(){document.getElementById('popupEnd').style.display="none";}
+
+// Simulationsschleife (nur Cursor bewegen, wenn Kickr tritt)
+setInterval(()=>{
+  if(kickrConnected && cadence>5) updateMarkerLive();
+},100);
+
+// Resize map
+window.addEventListener('resize', ()=>map.invalidateSize());
 </script>
 </body>
 </html>
