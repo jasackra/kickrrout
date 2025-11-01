@@ -24,7 +24,7 @@ html,body {margin:0;padding:0;height:100%;overflow:hidden;background:#f0f0f0;}
 
 /* Infobalken neben Pflichtfeld */
 #infobar{
-  position:fixed;top:10px;left:220px; /* neben Pflichtfeld */
+  position:fixed;top:10px;left:220px; 
   background:linear-gradient(135deg,#1e3c72,#2a5298);
   color:#fff;padding:12px 18px;border-radius:12px;
   z-index:1000;font-family:sans-serif;font-size:14px;
@@ -33,19 +33,33 @@ html,body {margin:0;padding:0;height:100%;overflow:hidden;background:#f0f0f0;}
 #infobar span{display:flex;gap:15px;align-items:center;}
 
 /* Höhenprofil */
-#elevChart{position:fixed;bottom:0;left:0;width:100%;height:15%;background:#fff;z-index:900;border-top:2px solid #000;}
+#elevChart{
+  position:fixed;
+  bottom:0;
+  left:0;
+  width:100%;
+  height:15%;
+  background:#888; /* undurchsichtiges Grau */
+  z-index:900;
+  border-top:2px solid #000;
+}
 
 /* Popup Zusammenfassung */
-#popupSummary{position:fixed;top:15%;left:50%;transform:translateX(-50%);width:66%;background:rgba(255,255,255,0.95);color:#000;z-index:2000;padding:20px;border-radius:12px;font-family:sans-serif;font-size:16px;display:none;text-align:center;}
+#popupSummary{
+  position:fixed;top:15%;left:50%;transform:translateX(-50%);
+  width:66%;background:rgba(255,255,255,0.95);color:#000;
+  z-index:2000;padding:20px;border-radius:12px;font-family:sans-serif;font-size:16px;
+  display:none;text-align:center;
+}
 </style>
 </head>
 <body>
 
 <div id="controls">
-  <button id="connectBtn">🔗 KICKR verbinden</button>
   <button id="gpxBtn">📁 GPX laden</button>
   <input type="file" id="gpxfile" accept=".gpx">
-  Gewicht: <input type="number" id="weight" value="" min="40" max="150" style="width:60px;" placeholder="kg">
+  <input type="number" id="weight" placeholder="Gewicht (kg)" style="width:100px;display:none;">
+  <button id="connectBtn" style="display:none;">🔗 KICKR verbinden</button>
   <button id="fullscreenBtn">⛶</button>
 </div>
 
@@ -68,7 +82,7 @@ const osm=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZ
 let coords=[], elevations=[], routeLine=null, marker=null;
 let totalGain=0, distance_m=0, seconds=0;
 let i=0, paused=false, follow=true;
-let weight=75, kickrConnected=false;
+let weight=0, kickrConnected=false;
 let currentCadence=0, currentWatt=0, rpmTimeout=null;
 
 const fileInput=document.getElementById('gpxfile');
@@ -84,7 +98,9 @@ function drawElevationChart(){
   elevCanvas.height=window.innerHeight*0.15;
   elevCtx.clearRect(0,0,elevCanvas.width,elevCanvas.height);
   if(!elevations.length) return;
-  elevCtx.strokeStyle='orange'; elevCtx.lineWidth=2;
+
+  elevCtx.strokeStyle='blue';
+  elevCtx.lineWidth=2;
   elevCtx.beginPath();
   const maxH=Math.max(...elevations), minH=Math.min(...elevations);
   for(let j=0;j<elevations.length;j++){
@@ -98,16 +114,17 @@ function drawElevationChart(){
 function updateElevationCursor(idx){
   drawElevationChart();
   if(!coords.length) return;
-  elevCtx.strokeStyle='red'; elevCtx.lineWidth=2;
+  elevCtx.strokeStyle='red';
+  elevCtx.lineWidth=2;
   const x=idx*(elevCanvas.width/coords.length);
-  elevCtx.beginPath(); elevCtx.moveTo(x,0); elevCtx.lineTo(x,elevCanvas.height); elevCtx.stroke();
+  elevCtx.beginPath();
+  elevCtx.moveTo(x,0);
+  elevCtx.lineTo(x,elevCanvas.height);
+  elevCtx.stroke();
 }
 
-gpxBtn.addEventListener('click',()=>{
-  if(!weightInput.value){alert("Bitte Gewicht eingeben!"); return;}
-  weight=parseFloat(weightInput.value);
-  fileInput.click();
-});
+// ---- Pflichtfelder nacheinander ----
+gpxBtn.addEventListener('click',()=>{ fileInput.click(); });
 
 fileInput.addEventListener('change',e=>{
   const file=e.target.files[0]; if(!file) return;
@@ -122,18 +139,25 @@ fileInput.addEventListener('change',e=>{
       elevations=feat.geometry.coordinates.map(c=>c[2]||0);
       if(routeLine) map.removeLayer(routeLine);
       routeLine=L.polyline(coords,{color:'#00aaff',weight:4}).addTo(map);
-      map.fitBounds(routeLine.getBounds());
       if(marker) map.removeLayer(marker);
       marker=L.marker(coords[0]).addTo(map);
+      map.fitBounds(routeLine.getBounds());
       totalGain=0; distance_m=0; seconds=0; i=0; paused=false;
-      updateTopBar();
-      drawElevationChart();
-      alert("GPX geladen! Bitte KICKR verbinden.");
+      updateTopBar(); drawElevationChart();
+      weightInput.style.display='inline-block';
     }catch(err){console.error(err); alert("Fehler beim Laden der GPX-Datei.");}
   };
   reader.readAsText(file);
 });
 
+weightInput.addEventListener('input',()=>{
+  if(weightInput.value>0){ 
+    weight=parseFloat(weightInput.value); 
+    connectBtn.style.display='inline-block'; 
+  }
+});
+
+// ---- KICKR verbinden ----
 connectBtn.addEventListener('click',()=>{
   if(!navigator.bluetooth){alert("Web Bluetooth nicht verfügbar!"); return;}
   navigator.bluetooth.requestDevice({
@@ -143,7 +167,6 @@ connectBtn.addEventListener('click',()=>{
     kickrConnected=true;
     connectBtn.classList.add("connected");
     connectBtn.textContent="KICKR verbunden";
-    // Hier müsste man dann Notifications abonnieren, um echte RPM/Watt zu erhalten
   }).catch(err=>{console.error(err); alert("Kickr Verbindung fehlgeschlagen.");});
 });
 
@@ -190,7 +213,7 @@ function haversine(lat1,lon1,lat2,lon2){
   return 2*R*Math.asin(Math.sqrt(a));
 }
 
-// Hier Marker live bewegen, sobald echte RPM/Watt von KICKR kommen
+// Marker live bewegen, sobald echte KICKR-Daten eintreffen
 function moveMarkerLive(){
   if(!kickrConnected || !coords.length || paused) return;
   if(currentCadence>5){
